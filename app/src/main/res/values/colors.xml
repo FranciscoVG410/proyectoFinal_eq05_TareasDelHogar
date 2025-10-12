@@ -6,5 +6,7 @@
     <color name="purple">#722AA2</color>
     <color name="blue">#66A5F2</color>
     <color name="red">#FF0000</color>
-
+    <color name="whitecorner">#FFFFFFFF</color>
+    <color name="btnBackground">#722AA2</color>
+    <color name="lightPurple">#F3F3F3</color>
 </resources>

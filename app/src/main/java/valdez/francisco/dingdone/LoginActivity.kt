@@ -51,12 +51,11 @@ class LoginActivity : AppCompatActivity() {
 
                 if(email.text.toString() == user.email && password.text.toString() == user.password){
 
-                    var intent = Intent(this, MainActivity::class.java)
+                    val intent = Intent(this, Configuration::class.java)
                     intent.putExtra("email", user.email)
                     intent.putExtra("name", user.name)
                     intent.putExtra("password", user.password)
                     startActivity(intent)
-
                 }
 
             }

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context=".JoinHome"
+    android:background="@color/white"
+    >
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        >
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="65dp"
+            android:background="@color/purple"
+            android:gravity="center"
+            android:text="Join Home"
+            android:textColor="@color/white"
+            android:textSize="25sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:background="@color/purple"
+            android:gravity="center_horizontal"
+            android:text="Enter the invitation code"
+            android:textColor="@color/white"
+
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+
+        <TextView
+            android:layout_width="300dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="40dp"
+            android:text="Invitation code"
+            android:textStyle="bold" />
+
+        <EditText
+            android:layout_width="300dp"
+            android:layout_height="80dp"
+            android:layout_gravity="center_horizontal"
+            android:background="@drawable/contorno"
+            android:gravity="center"
+            android:hint="ABC123"
+            android:textSize="40sp" />
+
+        <android.widget.Button
+            android:id="@+id/btnCreateHome"
+            android:layout_width="300dp"
+            android:layout_height="40dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="30dp"
+            android:background="@drawable/fondobtn"
+            android:text="Join"
+            android:textColor="@color/white"
+            android:textStyle="bold" />
+
+        <android.widget.Button
+            android:id="@+id/btnCancel"
+            android:layout_width="300dp"
+            android:layout_height="40dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/contorno"
+            android:text="Cancel"
+            android:textColor="@color/purple"
+            android:textStyle="bold" />
+
+    </LinearLayout>
+
+</LinearLayout>

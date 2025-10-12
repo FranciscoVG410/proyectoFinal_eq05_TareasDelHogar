@@ -16,6 +16,21 @@
             android:name=".SignUpActivity"
             android:exported="false" />
         <activity
+            android:name=".Configuration"
+            android:exported="false" />
+        <activity
+            android:name=".CreateHome"
+            android:exported="false" />
+        <activity
+            android:name=".HomeConfiguration"
+            android:exported="false" />
+        <activity
+            android:name=".HomeCreated"
+            android:exported="false" />
+        <activity
+            android:name=".JoinHome"
+            android:exported="false" />
+        <activity
             android:name=".LoginActivity"
             android:exported="true" >
             <intent-filter>
