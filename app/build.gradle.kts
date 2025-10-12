@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "valdez.francisco.dingdone"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "valdez.francisco.dingdone"
