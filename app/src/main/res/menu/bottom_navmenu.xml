@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/btnNav_tasks"
+        android:title="Tasks"
+        android:icon="@drawable/outline_checklist_24"/>
+
+    <item
+        android:id="@+id/btnNav_config"
+        android:title="Config"
+        android:icon="@drawable/settings"/>
+</menu>
