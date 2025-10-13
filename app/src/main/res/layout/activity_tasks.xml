@@ -93,14 +93,14 @@
             android:layout_width="32dp"
             android:layout_height="32dp"
             android:src="@android:drawable/ic_menu_agenda"
-            android:tint="#9C27B0"
+            app:tint="#9C27B0"
             android:layout_margin="32dp" />
 
         <ImageView
             android:layout_width="32dp"
             android:layout_height="32dp"
             android:src="@android:drawable/ic_menu_manage"
-            android:tint="#9C27B0"
+            app:tint="#9C27B0"
             android:layout_margin="32dp" />
     </LinearLayout>
 
