@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:background="@drawable/task_card_bg"
+    android:layout_marginBottom="12dp">
+
+    <TextView
+        android:id="@+id/taskDay"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Monday"
+        android:textStyle="bold"
+        android:textSize="16sp"
+        android:textColor="#333" />
+
+    <TextView
+        android:id="@+id/taskTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Lavar los platos"
+        android:textStyle="bold"
+        android:textColor="#000"
+        android:textSize="15sp"
+        android:layout_marginTop="4dp" />
+
+    <TextView
+        android:id="@+id/taskDesc"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Lavar todos los platos que se usaron en la mañana"
+        android:textColor="#555"
+        android:textSize="13sp"
+        android:layout_marginTop="2dp" />
+
+    <TextView
+        android:id="@+id/taskStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Pendiente"
+        android:textColor="#9C27B0"
+        android:textStyle="bold"
+        android:layout_marginTop="4dp" />
+</LinearLayout>

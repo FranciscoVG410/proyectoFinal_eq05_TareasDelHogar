@@ -44,7 +44,10 @@ class CreateHome : AppCompatActivity() {
         bottomNavigationView.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.btnNav_tasks -> {
-                    //falta el startActivity del Tasks
+                    supportFragmentManager.beginTransaction()
+                        .replace(R.id.btnCreateAccount, TasksFragment())
+                        .commit()
+
                     true
                 }
                 R.id.btnNav_config -> {
