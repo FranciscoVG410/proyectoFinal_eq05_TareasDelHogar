@@ -65,7 +65,7 @@ class TasksActivity : AppCompatActivity() {
             buttonsContainer.addView(button)
         }
 
-        taskAdapter = TaskAdapter(allTasks)
+        taskAdapter = TaskAdapter(allTasks, this)
         recyclerView.adapter = taskAdapter
 
         // Show the first list of tasks by default

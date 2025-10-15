@@ -1,5 +1,7 @@
 package valdez.francisco.dingdone
 
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -39,14 +41,14 @@ class TasksFragment : Fragment() {
             emptyText.visibility = View.GONE
             taskList.visibility = View.VISIBLE
             taskList.layoutManager = LinearLayoutManager(requireContext())
-            taskList.adapter = TaskAdapter(dummyTasks)
+            taskList.adapter = TaskAdapter(dummyTasks, this.requireContext())
         }
 
         return view
     }
 }
 
-class TaskAdapter(private val tasks: List<Task>) : RecyclerView.Adapter<TaskAdapter.TaskViewHolder>() {
+class TaskAdapter(private val tasks: List<Task>, private val context: Context) : RecyclerView.Adapter<TaskAdapter.TaskViewHolder>() {
     class TaskViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val day: TextView = view.findViewById(R.id.taskDay)
         val title: TextView = view.findViewById(R.id.textViewTitle)
@@ -65,6 +67,11 @@ class TaskAdapter(private val tasks: List<Task>) : RecyclerView.Adapter<TaskAdap
         holder.title.text = t.title
         holder.desc.text = t.description
         holder.status.text = t.status
+        holder.itemView.setOnClickListener {
+
+            context.startActivity(Intent(context, HomeConfiguration::class.java))
+
+        }
     }
 
     override fun getItemCount() = tasks.size
