@@ -21,6 +21,10 @@ class SignUpActivity : AppCompatActivity() {
     private lateinit var textFail: TextView
     private lateinit var textSuccess: TextView
     private lateinit var toast: Toast
+    private lateinit var etNombre: EditText
+    private lateinit var etEmail: EditText
+    private lateinit var etPassword: EditText
+    private lateinit var etConfirmPassword: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
 
@@ -37,10 +41,10 @@ class SignUpActivity : AppCompatActivity() {
 
         auth = Firebase.auth
 
-        val etNombre: EditText = findViewById(R.id.etRName)
-        val etEmail: EditText = findViewById(R.id.etREmail)
-        val etPassword: EditText = findViewById(R.id.etRPassword)
-        val etConfirmPassword: EditText = findViewById(R.id.etRConfirmPassword)
+        etNombre = findViewById(R.id.etRName)
+        etEmail = findViewById(R.id.etREmail)
+        etPassword = findViewById(R.id.etRPassword)
+        etConfirmPassword = findViewById(R.id.etRConfirmPassword)
 
         val btnCreateAccount: Button = findViewById(R.id.btnCreateAccount)
         val btnBackLogin: Button = findViewById(R.id.btnBackLogin)
@@ -51,35 +55,33 @@ class SignUpActivity : AppCompatActivity() {
             val password = etPassword.text.toString()
             val confirmPassword = etConfirmPassword.text.toString()
 
-            etNombre.setBackgroundResource(R.drawable.rounded_edit_text)
-            etEmail.setBackgroundResource(R.drawable.rounded_edit_text)
-            etPassword.setBackgroundResource(R.drawable.rounded_edit_text)
-            etConfirmPassword.setBackgroundResource(R.drawable.rounded_edit_text)
+            etNombre.setBackgroundResource(R.drawable.edittext_bg)
+            etEmail.setBackgroundResource(R.drawable.edittext_bg)
+            etPassword.setBackgroundResource(R.drawable.edittext_bg)
+            etConfirmPassword.setBackgroundResource(R.drawable.edittext_bg)
 
             if (name.isEmpty() || email.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
 
-                textFail.text = "Pleas fill all fields"
+                textFail.text = "Please fill all fields"
                 toast.duration = Toast.LENGTH_SHORT
                 toast.view = layoutFail
                 toast.show()
-//                Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show()
 
-                if (name.isEmpty()) etNombre.setBackgroundResource(R.drawable.error_rounded_edit_text)
-                if (email.isEmpty()) etEmail.setBackgroundResource(R.drawable.error_rounded_edit_text)
-                if (password.isEmpty()) etPassword.setBackgroundResource(R.drawable.error_rounded_edit_text)
-                if (confirmPassword.isEmpty()) etConfirmPassword.setBackgroundResource(R.drawable.error_rounded_edit_text)
+                if (name.isEmpty()) etNombre.setBackgroundResource(R.drawable.edittext_bg_error)
+                if (email.isEmpty()) etEmail.setBackgroundResource(R.drawable.edittext_bg_error)
+                if (password.isEmpty()) etPassword.setBackgroundResource(R.drawable.edittext_bg_error)
+                if (confirmPassword.isEmpty()) etConfirmPassword.setBackgroundResource(R.drawable.edittext_bg_error)
                 return@setOnClickListener
             }
 
             if (password != confirmPassword) {
 
-                textFail.text = "Password do not match"
+                textFail.text = "Passwords do not match"
                 toast.duration = Toast.LENGTH_SHORT
                 toast.view = layoutFail
                 toast.show()
-//                Toast.makeText(this, "Passwords do not match", Toast.LENGTH_SHORT).show()
-                etPassword.setBackgroundResource(R.drawable.error_rounded_edit_text)
-                etConfirmPassword.setBackgroundResource(R.drawable.error_rounded_edit_text)
+                etPassword.setBackgroundResource(R.drawable.edittext_bg_error)
+                etConfirmPassword.setBackgroundResource(R.drawable.edittext_bg_error)
                 return@setOnClickListener
             }
 
@@ -103,12 +105,6 @@ class SignUpActivity : AppCompatActivity() {
                     toast.view = layoutSucces
                     toast.show()
 
-//                    Toast.makeText(
-//                        baseContext,
-//                        "Account created successfully!",
-//                        Toast.LENGTH_SHORT
-//                    ).show()
-
                     val intent = Intent(this, LoginActivity::class.java)
                     intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                     startActivity(intent)
@@ -117,16 +113,13 @@ class SignUpActivity : AppCompatActivity() {
                 } else {
                     Log.w("FAILURE", "createUserWithEmail:failure", task.exception)
 
-                    textSuccess.text = "Account creation failed"
-                    toast.duration = Toast.LENGTH_SHORT
-                    toast.view = layoutSucces
+                    textFail.text = "Authentication failed: ${task.exception?.message}"
+                    toast.duration = Toast.LENGTH_LONG
+                    toast.view = layoutFail
                     toast.show()
 
-//                    Toast.makeText(
-//                        baseContext,
-//                        "Authentication failed: ${task.exception?.message}",
-//                        Toast.LENGTH_LONG // Use long for better readability of error
-//                    ).show()
+                    etEmail.setBackgroundResource(R.drawable.edittext_bg_error)
+                    etPassword.setBackgroundResource(R.drawable.edittext_bg_error)
                 }
             }
     }

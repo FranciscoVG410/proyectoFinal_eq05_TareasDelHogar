@@ -57,9 +57,11 @@
         app:menu="@menu/bottom_navmenu"
         app:itemIconSize="50dp"
         app:labelVisibilityMode="unlabeled"
-        android:layout_height="80dp"
+        android:layout_height="wrap_content"
         app:layout_constraintBottom_toBottomOf="parent"
         />
+
+
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabAddTask"
