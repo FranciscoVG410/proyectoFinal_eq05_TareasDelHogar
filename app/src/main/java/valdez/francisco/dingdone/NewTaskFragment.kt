@@ -121,10 +121,11 @@ class NewTaskFragment : Fragment() {
         checkFormState()
     }
 
-    private fun checkFormState() {
+    private fun checkFormState(isButtonClick: Boolean = false) {
         val valid = taskName.text.isNotBlank() && taskDesc.text.isNotBlank()
         val anyDaySelected = dayButtons.any { it.tag == "selected" }
         val anyNameInChips = chipsContainer.childCount > 0
+
 
         if (valid && anyDaySelected && anyNameInChips) {
             saveButton.isEnabled = true
@@ -135,7 +136,7 @@ class NewTaskFragment : Fragment() {
         } else {
             saveButton.isEnabled = false
             saveButton.setBackgroundResource(R.drawable.button_disabled)
-            if (taskName.text.isBlank() || taskDesc.text.isBlank()) {
+            if ((taskName.text.isBlank() || taskDesc.text.isBlank()) && isButtonClick) {
                 taskName.setBackgroundResource(R.drawable.edittext_bg_error)
                 taskDesc.setBackgroundResource(R.drawable.edittext_bg_error)
             }

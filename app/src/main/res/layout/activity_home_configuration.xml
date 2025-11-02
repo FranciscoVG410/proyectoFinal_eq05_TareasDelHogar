@@ -23,6 +23,7 @@
                 android:layout_height="65dp"
                 android:background="@color/purple"
                 android:gravity="center"
+                android:paddingTop="16dp"
                 android:text="Configuration"
                 android:textColor="@color/white"
                 android:textSize="25sp"
