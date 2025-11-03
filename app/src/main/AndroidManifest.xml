@@ -13,28 +13,10 @@
         android:theme="@style/Theme.DingDone"
         tools:targetApi="31">
         <activity
-            android:name=".GraphsActivity"
-            android:exported="false" />
-        <activity
-            android:name=".TaskDetail"
-            android:exported="false" />
-        <activity
             android:name=".SignUpActivity"
             android:exported="false" />
         <activity
             android:name=".Configuration"
-            android:exported="false" />
-        <activity
-            android:name=".CreateHome"
-            android:exported="false" />
-        <activity
-            android:name=".HomeConfiguration"
-            android:exported="false" />
-        <activity
-            android:name=".HomeCreated"
-            android:exported="false" />
-        <activity
-            android:name=".JoinHome"
             android:exported="false" />
         <activity
             android:name=".TasksActivity"
@@ -48,9 +30,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".MainActivity"
-            android:exported="false" />
     </application>
 
 </manifest>
