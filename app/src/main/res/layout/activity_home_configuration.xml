@@ -135,6 +135,7 @@
         android:background="@color/white"
         app:menu="@menu/bottom_navmenu"
         app:itemIconSize="50dp"
+        app:itemIconTint="@color/purple"
         app:labelVisibilityMode="unlabeled"
         />
 </LinearLayout>

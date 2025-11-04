@@ -57,6 +57,13 @@ class TasksActivity : AppCompatActivity() {
                         .commit()
                     true
                 }
+                R.id.btnNav_profile -> {
+                    supportFragmentManager.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
+                    supportFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, ProfileFragment())
+                        .commit()
+                    true
+                }
                 else -> false
             }
         }

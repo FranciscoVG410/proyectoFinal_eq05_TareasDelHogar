@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    >
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="match_parent"
+        android:layout_height="65dp"
+        android:paddingTop="16dp"
+        android:background="@color/purple"
+        android:gravity="center"
+        android:text="Profile"
+        android:textColor="@color/white"
+        android:textSize="25sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:layout_gravity="center"
+        android:id="@+id/tv_namePofile"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:text="Name:"
+        android:textSize="25dp"
+        android:textColor="@color/purple"
+        android:fontFamily="sans-serif-black"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textView" />
+
+    <TextView
+        android:id="@+id/tv_completeName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:textSize="20dp"
+        android:fontFamily="sans-serif-black"
+        android:textColor="@color/black"
+        android:text=""
+        app:layout_constraintStart_toEndOf="@+id/tv_namePofile"
+        tools:layout_editor_absoluteY="97dp" />
+
+    <TextView
+        android:layout_gravity="center"
+        android:id="@+id/tv_email"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:text="E-mail:"
+        android:textSize="25dp"
+        android:textColor="@color/purple"
+        android:fontFamily="sans-serif-black"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textView" />
+
+    <TextView
+        android:id="@+id/tv_realEmail"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:textSize="20dp"
+        android:fontFamily="sans-serif-black"
+        android:textColor="@color/black"
+        android:text=""
+        app:layout_constraintStart_toEndOf="@+id/tv_namePofile"
+        tools:layout_editor_absoluteY="97dp" />
+
+    <TextView
+        android:layout_gravity="center"
+        android:id="@+id/tv_numberTasks"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:text="Number of Completed Tasks:"
+        android:textSize="25dp"
+        android:textColor="@color/purple"
+        android:fontFamily="sans-serif-black"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textView" />
+
+    <TextView
+        android:id="@+id/tv_numberCompletedTasks"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:textSize="40dp"
+        android:fontFamily="sans-serif-black"
+        android:textColor="@color/blue"
+        android:text=""
+        app:layout_constraintStart_toEndOf="@+id/tv_namePofile"
+        tools:layout_editor_absoluteY="97dp" />
+
+</LinearLayout>

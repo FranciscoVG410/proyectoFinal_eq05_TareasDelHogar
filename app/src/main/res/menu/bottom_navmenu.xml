@@ -5,7 +5,6 @@
         android:id="@+id/btnNav_tasks"
         android:title="Tasks"
         android:icon="@drawable/tasksvector"/>
-
     <item
         android:id="@+id/btnNavGraphs"
         android:title="Graphics"
@@ -16,4 +15,9 @@
         android:title="Config"
         android:icon="@drawable/settings__2_"/>
 
+    <item
+        android:id="@+id/btnNav_profile"
+        android:title="Profile"
+        android:icon="@drawable/profile"
+        />
 </menu>
