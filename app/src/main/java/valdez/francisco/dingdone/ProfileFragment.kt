@@ -40,7 +40,7 @@ class ProfileFragment : Fragment() {
                     if (document.exists()) {
                         val name = document.getString("name")
                         val email = document.getString("email")
-                        val completedTasks = document.getLong("completedTasks")
+                        val completedTasks = document.getLong("completedTasks") ?: 0L
 
                         tvCompleteName.text = name
                         tvRealEmail.text = email
