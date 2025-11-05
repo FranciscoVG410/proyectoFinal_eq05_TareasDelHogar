@@ -20,6 +20,7 @@
         android:layout_width="match_parent"
         android:background="@color/white"
         app:menu="@menu/bottom_navmenu"
+        app:itemIconTint="@color/purple"
         app:itemIconSize="50dp"
         app:labelVisibilityMode="unlabeled"
         android:layout_height="wrap_content"

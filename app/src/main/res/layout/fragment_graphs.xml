@@ -45,6 +45,13 @@
                 android:layout_marginLeft="80dp"
                 android:layout_gravity="left" />
 
+            <com.github.mikephil.charting.charts.PieChart
+                android:id="@+id/pieChart"
+                android:layout_width="match_parent"
+                android:layout_height="400dp"
+                android:layout_marginLeft="30dp"
+                android:layout_marginRight="30dp"/>
+
         </LinearLayout>
 
     </ScrollView>
