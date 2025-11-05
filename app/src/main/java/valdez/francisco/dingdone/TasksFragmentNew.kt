@@ -90,13 +90,23 @@ class TasksFragmentNew : Fragment() {
         }
 
         val fabAddTask: FloatingActionButton = view.findViewById(R.id.fabAddTask)
+        val fragmentContainer = view.findViewById<android.view.View>(R.id.fragment_container)
+        
         fabAddTask.setOnClickListener {
             val fragment = NewTaskFragment()
-
+            
+            fragmentContainer.visibility = android.view.View.VISIBLE
             parentFragmentManager.beginTransaction().apply {
                 replace(R.id.fragment_container, fragment)
                 addToBackStack(null)
                 commit()
+            }
+        }
+        
+        // Hide fragment container when back stack changes
+        parentFragmentManager.addOnBackStackChangedListener {
+            if (parentFragmentManager.backStackEntryCount == 0) {
+                fragmentContainer.visibility = android.view.View.GONE
             }
         }
 
