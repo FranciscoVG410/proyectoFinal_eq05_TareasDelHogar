@@ -34,6 +34,12 @@ class NewTaskFragment : Fragment() {
         saveButton = view.findViewById(R.id.saveButton)
         memberSpinner = view.findViewById(R.id.memberSpinner)
         chipsContainer = view.findViewById(R.id.chipsContainer)
+        
+        // Back button in header
+        val backButtonHeader: ImageButton = view.findViewById(R.id.backButtonHeader)
+        backButtonHeader.setOnClickListener {
+            parentFragmentManager.popBackStack()
+        }
 
         // Days buttons
         val daysContainer = view.findViewById<GridLayout>(R.id.daysContainer)
@@ -94,6 +100,12 @@ class NewTaskFragment : Fragment() {
             intent.putExtra("newTask", createTask())
             startActivity(intent)
 
+        }
+        
+        // Bottom back button
+        val backButton: Button = view.findViewById(R.id.backButton)
+        backButton.setOnClickListener {
+            parentFragmentManager.popBackStack()
         }
 
         return view
