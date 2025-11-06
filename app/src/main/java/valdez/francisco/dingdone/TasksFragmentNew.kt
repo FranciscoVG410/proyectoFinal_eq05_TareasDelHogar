@@ -21,6 +21,12 @@ class TasksFragmentNew : Fragment() {
     private val tasks1 = mutableListOf<Task>()
     private val tasks2 = mutableListOf<Task>()
     private val tasks3 = mutableListOf<Task>()
+    
+    private val backStackListener = {
+        if (isAdded && parentFragmentManager.backStackEntryCount == 0) {
+            view?.findViewById<android.view.View>(R.id.fragment_container)?.visibility = android.view.View.GONE
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -104,13 +110,16 @@ class TasksFragmentNew : Fragment() {
         }
         
         // Hide fragment container when back stack changes
-        parentFragmentManager.addOnBackStackChangedListener {
-            if (parentFragmentManager.backStackEntryCount == 0) {
-                fragmentContainer.visibility = android.view.View.GONE
-            }
-        }
+        parentFragmentManager.addOnBackStackChangedListener(backStackListener)
 
         return view
+    }
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        if (isAdded) {
+            parentFragmentManager.removeOnBackStackChangedListener(backStackListener)
+        }
     }
 
     private fun updateButtonStyles(selectedButton: Button) {
