@@ -11,6 +11,10 @@ import android.widget.*
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
+import com.google.firebase.firestore.FirebaseFirestore
+
 
 class NewTaskFragment : Fragment() {
 
@@ -22,12 +26,21 @@ class NewTaskFragment : Fragment() {
     private lateinit var dayButtons: List<Button>
     private val userList = mutableListOf<UserData>()
     private val selectedDays = mutableSetOf<String>()
+    private val taskViewModel: TaskViewModel by viewModels()
+    private val homeViewModel: HomeShareViewModel by activityViewModels()
+
+
+
+
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_new_task, container, false)
+
+
+        val homes = listOf<Home>() // tu lista real
 
         taskName = view.findViewById(R.id.taskName)
         taskDesc = view.findViewById(R.id.taskDesc)
@@ -62,13 +75,13 @@ class NewTaskFragment : Fragment() {
                     button.setBackgroundResource(R.drawable.button_outline)
                     button.setTextColor(ContextCompat.getColor(requireContext(), R.color.purple))
                     button.tag = "unselected"
-                    selectedDays.remove(day)
+                    selectedDays.remove(date(day))
                 } else {
                     // Select
                     button.setBackgroundResource(R.drawable.button_enabled)
                     button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
                     button.tag = "selected"
-                    selectedDays.add(day)
+                    selectedDays.add(date(day))
                 }
                 
                 checkFormState()
@@ -92,16 +105,33 @@ class NewTaskFragment : Fragment() {
         taskName.setOnFocusChangeListener { _, _ -> checkFormState() }
         taskDesc.setOnFocusChangeListener { _, _ -> checkFormState() }
 
-        saveButton.setOnClickListener{
+        saveButton.setOnClickListener {
 
-            checkFormState()
+            val homeId = homeViewModel.selectedHomeId.value
 
-            var intent = Intent(requireContext(), TasksActivity::class.java)
-            intent.putExtra("newTask", createTask())
-            startActivity(intent)
+            if (homeId == null) {
+                Toast.makeText(requireContext(), "No hay un hogar seleccionado", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
 
+            val task = createTask()
+
+            FirebaseFirestore.getInstance()
+                .collection("homes")
+                .document(homeId)
+                .collection("tasks")
+                .add(task)
+                .addOnSuccessListener {
+                    Toast.makeText(requireContext(), "Tarea creada!", Toast.LENGTH_SHORT).show()
+                    parentFragmentManager.popBackStack()
+                }
+                .addOnFailureListener {
+                    Toast.makeText(requireContext(), "Error al guardar", Toast.LENGTH_LONG).show()
+                }
         }
-        
+
+
+
         // Bottom back button
         val backButton: Button = view.findViewById(R.id.backButton)
         backButton.setOnClickListener {
@@ -172,11 +202,14 @@ class NewTaskFragment : Fragment() {
 
     }
 
-    fun createTask(): Task{
-        // Convert selected days to Spanish and join with commas
-        val daysInSpanish = selectedDays.map { date(it) }.joinToString(", ")
-        
-        return Task(taskName.text.toString(), taskDesc.text.toString(), userList, daysInSpanish, "Pendiente")
-
+    fun createTask(): Task {
+        return Task(
+            nombre = taskName.text.toString(),
+            descripcio = taskDesc.text.toString(),
+            member = userList.map { it.nombre },
+            date = selectedDays.toList(),
+            state = "Pendiente"
+        )
     }
+
 }

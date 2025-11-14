@@ -70,7 +70,7 @@ class TaskDateAdapterNew(private var items: List<TaskListItem>) : RecyclerView.A
             item.task.member.forEach{ member ->
                 val chipContext = ContextThemeWrapper(chgMembers.context, com.google.android.material.R.style.Theme_MaterialComponents_Light)
                 val chip = Chip(chipContext).apply {
-                    text = member.nombre
+                    text = member
                     isClickable = false
                     isCheckable = false
                     setChipBackgroundColorResource(R.color.btnBackground)
@@ -88,7 +88,7 @@ class TaskDateAdapterNew(private var items: List<TaskListItem>) : RecyclerView.A
                             putString("nombre", item.task.nombre)
                             putString("descripcion", item.task.descripcio)
                             putString("estado", item.task.state)
-                            putStringArrayList("miembros", ArrayList(item.task.member.map { it.nombre }))
+                            putStringArrayList("miembros", ArrayList(item.task.member))
                         }
                     }
                     

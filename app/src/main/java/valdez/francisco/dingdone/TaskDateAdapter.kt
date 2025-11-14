@@ -86,7 +86,7 @@ class TaskDateAdapter(private var items: List<TaskListItem>) : RecyclerView.Adap
                 val chipContext = ContextThemeWrapper(chgMembers.context, com.google.android.material.R.style.Theme_MaterialComponents_Light)
                 val chip = Chip(chipContext).apply {
 
-                    text = member.nombre
+                    text = member
                     isClickable = false
                     isCheckable = false
                     setChipBackgroundColorResource(R.color.btnBackground)
