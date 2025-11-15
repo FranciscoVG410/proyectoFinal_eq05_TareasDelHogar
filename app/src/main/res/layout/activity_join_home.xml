@@ -48,16 +48,19 @@
             android:textStyle="bold" />
 
         <EditText
+            android:id="@+id/et_invitationCode"
             android:layout_width="300dp"
             android:layout_height="80dp"
             android:layout_gravity="center_horizontal"
             android:background="@drawable/contorno"
             android:gravity="center"
             android:hint="ABC123"
-            android:textSize="40sp" />
+            android:textSize="40sp"
+            android:inputType="textCapCharacters"
+            android:maxLength="5"/>
 
         <android.widget.Button
-            android:id="@+id/btnCreateHome"
+            android:id="@+id/btnJoinHome"
             android:layout_width="300dp"
             android:layout_height="40dp"
             android:layout_gravity="center_horizontal"
