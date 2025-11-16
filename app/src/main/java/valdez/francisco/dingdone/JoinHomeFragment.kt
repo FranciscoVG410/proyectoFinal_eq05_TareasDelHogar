@@ -9,6 +9,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels // Importar para ViewModels compartidos
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -22,6 +23,8 @@ class JoinHomeFragment : Fragment() {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
+    private val homeShareViewModel: HomeShareViewModel by activityViewModels()
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -34,13 +37,11 @@ class JoinHomeFragment : Fragment() {
         btnCancel = view.findViewById(R.id.btnCancel)
 
         btnJoinHome.setOnClickListener {
-            val code = etInvitationCode.text.toString().uppercase() // Normalizar a MAYÚSCULAS
+            val code = etInvitationCode.text.toString().uppercase()
 
             if (code.length != 5) {
-
                 Toast.makeText(requireContext(), "El código debe tener 5 caracteres.", Toast.LENGTH_SHORT).show()
                 etInvitationCode.setBackgroundResource(R.drawable.error_rounded_edit_text)
-
             } else {
                 etInvitationCode.setBackgroundResource(R.drawable.rounded_edit_text)
                 joinHome(code)
@@ -63,7 +64,6 @@ class JoinHomeFragment : Fragment() {
 
         }
 
-        // Buscar el Home por el código
         db.collection("homes")
             .whereEqualTo("invitationCode", invitationCode)
             .limit(1)
@@ -78,14 +78,15 @@ class JoinHomeFragment : Fragment() {
                 val homeId = homeDocument.id
                 val currentMembers = homeDocument.get("members") as? List<String> ?: emptyList()
 
-                // Verificar si el usuario ya es miembro
                 if (currentMembers.contains(userId)) {
                     Toast.makeText(requireContext(), "You are already a member of this Home", Toast.LENGTH_SHORT).show()
+
+                    homeShareViewModel.selectHome(homeId)
+
                     parentFragmentManager.popBackStack()
                     return@addOnSuccessListener
                 }
 
-                // Ejecutar la transacción de actualización de datos
                 updateUserAndHome(userId, homeId, homeDocument.reference)
             }
             .addOnFailureListener { e ->
@@ -100,40 +101,40 @@ class JoinHomeFragment : Fragment() {
         val userHomeCollection = db.collection("user_home")
 
         val userHomeData = hashMapOf(
-
             "userId" to userId,
             "homeId" to homeId,
             "role" to "member",
             "joinedAt" to FieldValue.serverTimestamp()
-
         )
 
         db.runTransaction { transaction ->
-
             transaction.update(homeRef, "members", FieldValue.arrayUnion(userId))
             transaction.update(userRef, "homes", FieldValue.arrayUnion(homeId))
             null
-
         }.addOnSuccessListener {
             userHomeCollection.add(userHomeData)
                 .addOnSuccessListener {
 
                     Log.d("JoinHome", "Usuario $userId succesfully joined in the Home $homeId")
-                    Toast.makeText(requireContext(), "Welcome to your new Home", Toast.LENGTH_LONG).show() // Usamos LONG para éxito
+                    Toast.makeText(requireContext(), "Welcome to your new Home", Toast.LENGTH_LONG).show()
+
+                    homeShareViewModel.selectHome(homeId)
+
                     parentFragmentManager.popBackStack()
 
                 }
                 .addOnFailureListener { e ->
                     Log.w("JoinHome", "WARNING: failed to create a user_home: ${e.message}")
                     Toast.makeText(requireContext(), "Succesfull join but there was a mistake", Toast.LENGTH_LONG).show()
+
+                    homeShareViewModel.selectHome(homeId)
+
                     parentFragmentManager.popBackStack()
                 }
 
         }.addOnFailureListener { e ->
-
             Log.e("JoinHome", "Transaction failed: ${e.message}", e)
             Toast.makeText(requireContext(), "Join failed, try again", Toast.LENGTH_SHORT).show()
         }
-
     }
 }

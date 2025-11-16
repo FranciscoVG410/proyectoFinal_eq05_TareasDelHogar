@@ -24,6 +24,10 @@ class UserViewModel : ViewModel() {
     private val _homesWithTasks = MutableLiveData<List<HomeWithTasks>>()
     val homesWithTasks: LiveData<List<HomeWithTasks>> get() = _homesWithTasks
 
+    // LiveData específico para los datos del gráfico de tareas completadas
+    private val _completedTasksData = MutableLiveData<List<Task>>()
+    val completedTasksData: LiveData<List<Task>> get() = _completedTasksData
+
     fun loadUserHomes(userId: String) {
         val db = FirebaseFirestore.getInstance()
 
@@ -104,5 +108,26 @@ class UserViewModel : ViewModel() {
             }
 
         }
+    }
+
+    fun loadCompletedTasksForHome(homeId: String) {
+        if (homeId.isEmpty()) {
+            _completedTasksData.postValue(emptyList())
+            return
+        }
+
+        db.collection("homes")
+            .document(homeId)
+            .collection("tasks")
+            .whereEqualTo("state", "Completada") // Filtra por tareas completadas
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val completedTasks = snapshot.toObjects(Task::class.java)
+                _completedTasksData.postValue(completedTasks)
+            }
+            .addOnFailureListener { e ->
+                Log.w("GraphsViewModel", "Error fetching completed tasks for $homeId: $e")
+                _completedTasksData.postValue(emptyList())
+            }
     }
 }
