@@ -119,7 +119,7 @@ class UserViewModel : ViewModel() {
         db.collection("homes")
             .document(homeId)
             .collection("tasks")
-            .whereEqualTo("state", "Completada") // Filtra por tareas completadas
+            .whereEqualTo("state", "Completada")
             .get()
             .addOnSuccessListener { snapshot ->
                 val completedTasks = snapshot.toObjects(Task::class.java)
