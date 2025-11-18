@@ -52,7 +52,7 @@ class TasksFragmentNew : Fragment() {
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
 
         buttonsContainer = view.findViewById(R.id.buttonsContainer)
-        taskAdapter = TaskDateAdapterNew(emptyList())
+        taskAdapter = TaskDateAdapterNew(emptyList(), "")
         recyclerView.adapter = taskAdapter
 
 
@@ -113,7 +113,7 @@ class TasksFragmentNew : Fragment() {
 
             if (selectedHomeId != null) {
                 val tasks = map[selectedHomeId] ?: emptyList()
-                updateTasks(tasks)
+                updateTasks(tasks, selectedHomeId)
             }
         }
 
@@ -165,10 +165,14 @@ class TasksFragmentNew : Fragment() {
         }
     }
 
-    private fun updateTasks(tasks: List<Task>) {
+    private fun updateTasks(tasks: List<Task>, homeId: String) {
 
         allTasks.clear()
         allTasks.addAll(tasks)
+
+        // Update adapter with correct homeId
+        taskAdapter = TaskDateAdapterNew(emptyList(), homeId)
+        recyclerView.adapter = taskAdapter
 
         // Mostrar mensaje si no hay tareas
         if (allTasks.isEmpty()) {
@@ -180,12 +184,16 @@ class TasksFragmentNew : Fragment() {
             recyclerView.visibility = View.VISIBLE
         }
 
-        // Agrupar por día
-        val groupedTasks = mutableMapOf<String, MutableList<Task>>()
+        // Separate pending and completed tasks
+        val pendingTasks = allTasks.filter { it.state != "Completada" }
+        val completedTasks = allTasks.filter { it.state == "Completada" }
 
-        for (task in allTasks) {
+        // Agrupar tareas pendientes por día
+        val groupedPendingTasks = mutableMapOf<String, MutableList<Task>>()
+
+        for (task in pendingTasks) {
             for (day in task.date) {
-                groupedTasks.getOrPut(day) { mutableListOf() }.add(task)
+                groupedPendingTasks.getOrPut(day) { mutableListOf() }.add(task)
             }
         }
 
@@ -196,13 +204,20 @@ class TasksFragmentNew : Fragment() {
             "Viernes", "Sabado", "Domingo"
         )
 
+        // Add pending tasks grouped by day
         for (day in weekDays) {
-            val dayTasks = groupedTasks[day]
+            val dayTasks = groupedPendingTasks[day]
 
             if (!dayTasks.isNullOrEmpty()) {
                 items.add(TaskListItem.Header(day))
                 items.addAll(dayTasks.map { TaskListItem.TaskItem(it) })
             }
+        }
+
+        // Add completed tasks section at the bottom
+        if (completedTasks.isNotEmpty()) {
+            items.add(TaskListItem.Header("Completadas"))
+            items.addAll(completedTasks.map { TaskListItem.TaskItem(it) })
         }
 
         taskAdapter.updateItem(items)

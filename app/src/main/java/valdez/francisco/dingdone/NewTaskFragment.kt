@@ -118,13 +118,15 @@ class NewTaskFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            val task = createTask()
-
-            FirebaseFirestore.getInstance()
-                .collection("homes")
+            val db = FirebaseFirestore.getInstance()
+            val taskRef = db.collection("homes")
                 .document(homeId)
                 .collection("tasks")
-                .add(task)
+                .document()
+            
+            val task = createTask(taskRef.id)
+
+            taskRef.set(task)
                 .addOnSuccessListener {
                     Toast.makeText(requireContext(), "Tarea creada!", Toast.LENGTH_SHORT).show()
                     parentFragmentManager.popBackStack()
@@ -284,13 +286,15 @@ class NewTaskFragment : Fragment() {
 
     }
 
-    fun createTask(): Task {
+    fun createTask(taskId: String): Task {
         return Task(
+            id = taskId,
             nombre = taskName.text.toString(),
             descripcio = taskDesc.text.toString(),
             member = userList.map { it.nombre },
             date = selectedDays.toList(),
-            state = "Pendiente"
+            state = "Pendiente",
+            editableBy = emptyList()
         )
     }
 

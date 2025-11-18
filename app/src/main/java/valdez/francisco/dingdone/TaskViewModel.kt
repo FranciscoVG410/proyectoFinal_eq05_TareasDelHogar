@@ -30,4 +30,24 @@ class TaskViewModel : ViewModel() {
             .addOnSuccessListener { onComplete(true) }
             .addOnFailureListener { onComplete(false) }
     }
+
+    fun updateTaskStatus(homeId: String, taskId: String, newStatus: String, onComplete: (Boolean) -> Unit) {
+        db.collection("homes")
+            .document(homeId)
+            .collection("tasks")
+            .document(taskId)
+            .update("state", newStatus)
+            .addOnSuccessListener { onComplete(true) }
+            .addOnFailureListener { onComplete(false) }
+    }
+
+    fun updateEditableMembers(homeId: String, taskId: String, editableBy: List<String>, onComplete: (Boolean) -> Unit) {
+        db.collection("homes")
+            .document(homeId)
+            .collection("tasks")
+            .document(taskId)
+            .update("editableBy", editableBy)
+            .addOnSuccessListener { onComplete(true) }
+            .addOnFailureListener { onComplete(false) }
+    }
 }

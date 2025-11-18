@@ -13,7 +13,10 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 
-class TaskDateAdapterNew(private var items: List<TaskListItem>) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+class TaskDateAdapterNew(
+    private var items: List<TaskListItem>,
+    private val homeId: String
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     fun updateItem(newItem: List<TaskListItem>){
         items = newItem
@@ -50,7 +53,7 @@ class TaskDateAdapterNew(private var items: List<TaskListItem>) : RecyclerView.A
         }
     }
 
-    class TaskViewHolder(view: View): RecyclerView.ViewHolder(view){
+    inner class TaskViewHolder(view: View): RecyclerView.ViewHolder(view){
         private val nombre: TextView = view.findViewById(R.id.tvTitulo)
         private val descripcion: TextView = view.findViewById(R.id.tvDescripcion)
         private val status: TextView = view.findViewById(R.id.tvTaskStatus)
@@ -85,10 +88,13 @@ class TaskDateAdapterNew(private var items: List<TaskListItem>) : RecyclerView.A
                 if (context is FragmentActivity) {
                     val fragment = TaskDetailFragment().apply {
                         arguments = Bundle().apply {
+                            putString("taskId", item.task.id)
+                            putString("homeId", homeId)
                             putString("nombre", item.task.nombre)
                             putString("descripcion", item.task.descripcio)
                             putString("estado", item.task.state)
                             putStringArrayList("miembros", ArrayList(item.task.member))
+                            putStringArrayList("editableBy", ArrayList(item.task.editableBy))
                         }
                     }
                     
