@@ -24,6 +24,9 @@ class HomeCreatedFragment : Fragment() {
 
         btnGoHome.setOnClickListener {
             parentFragmentManager.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, TasksFragmentNew())
+                .commit()
         }
         
         return view
