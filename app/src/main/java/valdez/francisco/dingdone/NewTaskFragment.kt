@@ -28,6 +28,8 @@ class NewTaskFragment : Fragment() {
     private val selectedDays = mutableSetOf<String>()
     private val taskViewModel: TaskViewModel by viewModels()
     private val homeViewModel: HomeShareViewModel by activityViewModels()
+    private val houseMemberNames = mutableListOf<String>()
+    private var isSpinnerInitialized = false
 
 
 
@@ -58,9 +60,8 @@ class NewTaskFragment : Fragment() {
         val daysContainer = view.findViewById<GridLayout>(R.id.daysContainer)
         dayButtons = (0 until daysContainer.childCount).map { daysContainer.getChildAt(it) as Button }
 
-        // Spinner data
-        val members = resources.getStringArray(R.array.members_list)
-        memberSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, members)
+        // Load house members dynamically
+        loadHouseMembers()
 
         // Handle day selection - allow multiple selection
         dayButtons.forEach { button ->
@@ -88,13 +89,16 @@ class NewTaskFragment : Fragment() {
             }
         }
 
-        // Simple chips simulation
         memberSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(
                 parent: AdapterView<*>, view: View?, position: Int, id: Long
             ) {
+                if (!isSpinnerInitialized) {
+                    isSpinnerInitialized = true
+                    return
+                }
                 val name = parent.getItemAtPosition(position).toString()
-                if (name.isNotBlank()) addChip(name)
+                if (name.isNotBlank() && position > 0) addChip(name)
                 checkFormState()
             }
 
@@ -139,6 +143,84 @@ class NewTaskFragment : Fragment() {
         }
 
         return view
+    }
+
+    private fun loadHouseMembers() {
+        val homeId = homeViewModel.selectedHomeId.value
+        
+        if (homeId == null) {
+            Toast.makeText(requireContext(), "No hay un hogar seleccionado", Toast.LENGTH_SHORT).show()
+            val placeholder = listOf("Seleccionar miembro...")
+            memberSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, placeholder)
+            isSpinnerInitialized = false
+            return
+        }
+
+        FirebaseFirestore.getInstance()
+            .collection("homes")
+            .document(homeId)
+            .get()
+            .addOnSuccessListener { document ->
+                if (document != null && document.exists()) {
+                    val memberIds = document.get("members") as? List<String> ?: emptyList()
+                    
+                    if (memberIds.isEmpty()) {
+                        houseMemberNames.clear()
+                        val membersWithPlaceholder = listOf("Seleccionar miembro...")
+                        memberSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, membersWithPlaceholder)
+                        isSpinnerInitialized = false
+                        return@addOnSuccessListener
+                    }
+
+                    houseMemberNames.clear()
+                    var loadedCount = 0
+
+                    memberIds.forEach { userId ->
+                        FirebaseFirestore.getInstance()
+                            .collection("users")
+                            .document(userId)
+                            .get()
+                            .addOnSuccessListener { userDoc ->
+                                if (userDoc != null && userDoc.exists()) {
+                                    val userName = userDoc.getString("name") ?: "Unknown"
+                                    houseMemberNames.add(userName)
+                                }
+                                
+                                loadedCount++
+                                if (loadedCount == memberIds.size) {
+                                    val membersWithPlaceholder = mutableListOf("Seleccionar miembro...")
+                                    membersWithPlaceholder.addAll(houseMemberNames)
+                                    memberSpinner.adapter = ArrayAdapter(
+                                        requireContext(),
+                                        android.R.layout.simple_spinner_dropdown_item,
+                                        membersWithPlaceholder
+                                    )
+                                    isSpinnerInitialized = false
+                                }
+                            }
+                            .addOnFailureListener { e ->
+                                Log.w("NewTaskFragment", "Error loading user $userId: $e")
+                                loadedCount++
+                                if (loadedCount == memberIds.size) {
+                                    val membersWithPlaceholder = mutableListOf("Seleccionar miembro...")
+                                    membersWithPlaceholder.addAll(houseMemberNames)
+                                    memberSpinner.adapter = ArrayAdapter(
+                                        requireContext(),
+                                        android.R.layout.simple_spinner_dropdown_item,
+                                        membersWithPlaceholder
+                                    )
+                                    isSpinnerInitialized = false
+                                }
+                            }
+                    }
+                } else {
+                    Toast.makeText(requireContext(), "Hogar no encontrado", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.w("NewTaskFragment", "Error loading home: $e")
+                Toast.makeText(requireContext(), "Error al cargar miembros", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun addChip(name: String) {
