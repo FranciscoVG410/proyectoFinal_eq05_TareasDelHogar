@@ -83,7 +83,10 @@ class JoinHomeFragment : Fragment() {
 
                     homeShareViewModel.selectHome(homeId)
 
-                    parentFragmentManager.popBackStack()
+                    parentFragmentManager.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
+                    parentFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, TasksFragmentNew())
+                        .commit()
                     return@addOnSuccessListener
                 }
 
@@ -120,7 +123,10 @@ class JoinHomeFragment : Fragment() {
 
                     homeShareViewModel.selectHome(homeId)
 
-                    parentFragmentManager.popBackStack()
+                    parentFragmentManager.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
+                    parentFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, TasksFragmentNew())
+                        .commit()
 
                 }
                 .addOnFailureListener { e ->
@@ -129,7 +135,10 @@ class JoinHomeFragment : Fragment() {
 
                     homeShareViewModel.selectHome(homeId)
 
-                    parentFragmentManager.popBackStack()
+                    parentFragmentManager.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
+                    parentFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, TasksFragmentNew())
+                        .commit()
                 }
 
         }.addOnFailureListener { e ->
