@@ -154,11 +154,13 @@ class TasksFragmentNew : Fragment() {
                     requireContext(),
                     R.drawable.fondobtn
                 )
+                button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
             } else {
                 button.background = ContextCompat.getDrawable(
                     requireContext(),
                     R.drawable.contorno
                 )
+                button.setTextColor(ContextCompat.getColor(requireContext(), R.color.purple))
             }
         }
     }
