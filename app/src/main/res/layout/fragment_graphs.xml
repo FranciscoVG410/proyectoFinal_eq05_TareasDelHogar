@@ -37,21 +37,68 @@
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
-            <Switch
-                android:layout_width="wrap_content"
-                android:layout_height="70dp"
-                android:scaleX="2"
-                android:scaleY="2"
-                android:layout_marginTop="20dp"
-                android:layout_marginLeft="80dp"
-                android:layout_gravity="left" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tipo de Datos:"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp"/>
+
+                <RadioGroup
+                    android:id="@+id/rgDataType"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="16dp">
+
+                    <RadioButton
+                        android:id="@+id/rbCompleted"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Completadas"
+                        android:checked="true" />
+
+                    <RadioButton
+                        android:id="@+id/rbUnfinished"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="No Realizadas" />
+                </RadioGroup>
+
+                <TextView
+                    android:id="@+id/tvPeriodTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Período (Solo para Completadas):"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp"/>
+
+                <Spinner
+                    android:id="@+id/spinnerPeriod"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:prompt="@string/select_period_prompt"
+                    android:spinnerMode="dropdown"/>
+
+            </LinearLayout>
             <com.github.mikephil.charting.charts.PieChart
                 android:id="@+id/pieChart"
                 android:layout_width="match_parent"
                 android:layout_height="400dp"
                 android:layout_marginLeft="30dp"
-                android:layout_marginRight="30dp"/>
+                android:layout_marginRight="30dp"
+                android:layout_marginTop="20dp"/>
 
         </LinearLayout>
 

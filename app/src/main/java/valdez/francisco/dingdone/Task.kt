@@ -13,6 +13,7 @@ data class Task(
     var member: List<String> = emptyList(),
     var date: List<String> = emptyList(),
     var stability: Int = 0,
+    var completionDate: Long? = null,
     var state: String = "",
     var editableBy: List<String> = emptyList()
 ): Parcelable

@@ -32,11 +32,24 @@ class TaskViewModel : ViewModel() {
     }
 
     fun updateTaskStatus(homeId: String, taskId: String, newStatus: String, onComplete: (Boolean) -> Unit) {
-        db.collection("homes")
+
+        val taskRef = db.collection("homes")
             .document(homeId)
             .collection("tasks")
             .document(taskId)
-            .update("state", newStatus)
+
+        val completionDateValue: Long? = if (newStatus == "Completada") {
+            System.currentTimeMillis()
+        } else {
+            null
+        }
+
+        val updates = hashMapOf<String, Any?>(
+            "state" to newStatus,
+            "completionDate" to completionDateValue
+        )
+
+        taskRef.update(updates as Map<String, Any>)
             .addOnSuccessListener { onComplete(true) }
             .addOnFailureListener { onComplete(false) }
     }

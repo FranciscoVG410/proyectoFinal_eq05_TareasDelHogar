@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
+import java.util.Calendar
+import com.google.firebase.firestore.Query
 
 class UserViewModel : ViewModel() {
 
@@ -27,6 +29,10 @@ class UserViewModel : ViewModel() {
     // LiveData específico para los datos del gráfico de tareas completadas
     private val _completedTasksData = MutableLiveData<List<Task>>()
     val completedTasksData: LiveData<List<Task>> get() = _completedTasksData
+
+    // LiveData específico para los datos del gráfico de tareas NO completadas
+    private val _unfinishedTasksData = MutableLiveData<List<Task>>()
+    val unfinishedTasksData: LiveData<List<Task>> get() = _unfinishedTasksData
 
     fun loadUserHomes(userId: String) {
         val db = FirebaseFirestore.getInstance()
@@ -110,24 +116,73 @@ class UserViewModel : ViewModel() {
         }
     }
 
-    fun loadCompletedTasksForHome(homeId: String) {
+    fun loadCompletedTasksForHome(homeId: String, period: PeriodType) {
         if (homeId.isEmpty()) {
             _completedTasksData.postValue(emptyList())
             return
         }
 
+        val startTime = getStartTime(System.currentTimeMillis(), period)
+
         db.collection("homes")
             .document(homeId)
             .collection("tasks")
             .whereEqualTo("state", "Completada")
+            .whereGreaterThanOrEqualTo("completionDate", startTime) // Filtrar por la fecha de completado
+            .orderBy("completionDate", com.google.firebase.firestore.Query.Direction.DESCENDING) // Ordenar para optimizar el índice
             .get()
             .addOnSuccessListener { snapshot ->
                 val completedTasks = snapshot.toObjects(Task::class.java)
                 _completedTasksData.postValue(completedTasks)
             }
             .addOnFailureListener { e ->
-                Log.w("GraphsViewModel", "Error fetching completed tasks for $homeId: $e")
+                Log.w("UserViewModel", "Error fetching completed tasks for $homeId: $e")
                 _completedTasksData.postValue(emptyList())
             }
+    }
+
+    fun loadUnfinishedTasksForHome(homeId: String) {
+        if (homeId.isEmpty()) {
+            _unfinishedTasksData.postValue(emptyList())
+            return
+        }
+
+        db.collection("homes")
+            .document(homeId)
+            .collection("tasks")
+            .whereEqualTo("state", "Pendiente")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val unfinishedTasks = snapshot.toObjects(Task::class.java)
+                _unfinishedTasksData.postValue(unfinishedTasks)
+            }
+            .addOnFailureListener { e ->
+                Log.w("UserViewModel", "Error fetching unfinished tasks for $homeId: $e")
+                _unfinishedTasksData.postValue(emptyList())
+            }
+    }
+
+    private fun getStartTime(currentTime: Long, period: PeriodType): Long {
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = currentTime
+
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        when (period) {
+            PeriodType.DAILY -> {
+
+            }
+            PeriodType.WEEKLY -> {
+                calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+            }
+            PeriodType.MONTHLY -> {
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+            }
+        }
+        return calendar.timeInMillis
     }
 }

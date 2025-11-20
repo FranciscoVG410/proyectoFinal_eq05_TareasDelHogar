@@ -5,6 +5,10 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.RadioGroup
+import android.widget.Spinner
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import com.github.mikephil.charting.charts.PieChart
@@ -21,6 +25,11 @@ class GraphsFragment : Fragment() {
     private val homeShareViewModel: HomeShareViewModel by activityViewModels()
 
     private lateinit var pieChart: PieChart
+    private lateinit var spinnerPeriod: Spinner
+    private lateinit var rgDataType: RadioGroup
+
+    private var currentPeriod: PeriodType = PeriodType.WEEKLY
+    private var currentDataType: GraphDataType = GraphDataType.COMPLETED
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -28,7 +37,64 @@ class GraphsFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_graphs, container, false)
         pieChart = view.findViewById(R.id.pieChart)
+
+        spinnerPeriod = view.findViewById(R.id.spinnerPeriod)
+        rgDataType = view.findViewById(R.id.rgDataType)
+
+        setupPeriodSpinner()
+
+        setupDataTypeRadioGroup()
+
         return view
+    }
+
+    private fun setupPeriodSpinner() {
+
+        val periodOptions = PeriodType.entries.map { it.name }
+
+        val adapter = ArrayAdapter(
+            requireContext(),
+            android.R.layout.simple_spinner_item,
+            periodOptions
+        ).also {
+            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+        spinnerPeriod.adapter = adapter
+
+        val initialPosition = periodOptions.indexOf(PeriodType.WEEKLY.name)
+        spinnerPeriod.setSelection(initialPosition)
+
+        spinnerPeriod.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+
+                val selectedName = periodOptions[position]
+                currentPeriod = PeriodType.valueOf(selectedName)
+                Log.d("GraphsFragment", "Período seleccionado: $currentPeriod")
+
+                if (currentDataType == GraphDataType.COMPLETED) {
+                    loadDataForCurrentHome()
+                }
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+
+            }
+        }
+    }
+
+    private fun setupDataTypeRadioGroup() {
+        rgDataType.setOnCheckedChangeListener { _, checkedId ->
+            when (checkedId) {
+                R.id.rbCompleted -> currentDataType = GraphDataType.COMPLETED
+                R.id.rbUnfinished -> currentDataType = GraphDataType.UNFINISHED
+                else -> return@setOnCheckedChangeListener
+            }
+            Log.d("GraphsFragment", "Tipo de dato seleccionado: $currentDataType")
+
+            loadDataForCurrentHome()
+        }
+
+        rgDataType.check(R.id.rbCompleted)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -39,7 +105,15 @@ class GraphsFragment : Fragment() {
         setupSelectedHomeObserver()
 
         userViewModel.completedTasksData.observe(viewLifecycleOwner) { completedTasks ->
-            updatePieChartData(completedTasks)
+            if (currentDataType == GraphDataType.COMPLETED) {
+                updatePieChartData(completedTasks)
+            }
+        }
+
+        userViewModel.unfinishedTasksData.observe(viewLifecycleOwner) { unfinishedTasks ->
+            if (currentDataType == GraphDataType.UNFINISHED) {
+                updatePieChartData(unfinishedTasks)
+            }
         }
     }
 
@@ -48,12 +122,30 @@ class GraphsFragment : Fragment() {
             if (homeId != null && homeId.isNotEmpty()) {
                 Log.d("GraphsFragment", "Cargando tareas para Home ID: $homeId")
 
-                userViewModel.loadCompletedTasksForHome(homeId)
+                loadDataForCurrentHome()
             } else {
                 Log.w("GraphsFragment", "Home ID no seleccionado o inválido.")
                 pieChart.setNoDataText("Selecciona un Home para ver los datos.")
                 pieChart.data = null
                 pieChart.invalidate()
+            }
+        }
+    }
+
+    private fun loadDataForCurrentHome() {
+        val homeId = homeShareViewModel.selectedHomeId.value
+        if (homeId != null && homeId.isNotEmpty()) {
+            when (currentDataType) {
+                GraphDataType.COMPLETED -> {
+                    userViewModel.loadCompletedTasksForHome(homeId, currentPeriod)
+                    pieChart.centerText = "Tareas Completadas (${currentPeriod.name})"
+                }
+                GraphDataType.UNFINISHED -> {
+
+                    userViewModel.loadUnfinishedTasksForHome(homeId)
+                    pieChart.centerText = "Tareas No Realizadas"
+
+                }
             }
         }
     }
@@ -65,7 +157,6 @@ class GraphsFragment : Fragment() {
 
         val legend = pieChart.legend
 
-        // ahora los nombres estaran ordenados verticalmente
         legend.orientation = Legend.LegendOrientation.VERTICAL
 
         legend.textSize = 20f
