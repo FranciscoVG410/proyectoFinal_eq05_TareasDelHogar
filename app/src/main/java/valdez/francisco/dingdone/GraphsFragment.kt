@@ -69,7 +69,7 @@ class GraphsFragment : Fragment() {
 
                 val selectedName = periodOptions[position]
                 currentPeriod = PeriodType.valueOf(selectedName)
-                Log.d("GraphsFragment", "Período seleccionado: $currentPeriod")
+                Log.d("GraphsFragment", "Period Selected: $currentPeriod")
 
                 if (currentDataType == GraphDataType.COMPLETED) {
                     loadDataForCurrentHome()
@@ -89,7 +89,7 @@ class GraphsFragment : Fragment() {
                 R.id.rbUnfinished -> currentDataType = GraphDataType.UNFINISHED
                 else -> return@setOnCheckedChangeListener
             }
-            Log.d("GraphsFragment", "Tipo de dato seleccionado: $currentDataType")
+            Log.d("GraphsFragment", "Selected DataType: $currentDataType")
 
             loadDataForCurrentHome()
         }
@@ -120,12 +120,12 @@ class GraphsFragment : Fragment() {
     private fun setupSelectedHomeObserver() {
         homeShareViewModel.selectedHomeId.observe(viewLifecycleOwner) { homeId ->
             if (homeId != null && homeId.isNotEmpty()) {
-                Log.d("GraphsFragment", "Cargando tareas para Home ID: $homeId")
+                Log.d("GraphsFragment", "Loading tasks: $homeId")
 
                 loadDataForCurrentHome()
             } else {
-                Log.w("GraphsFragment", "Home ID no seleccionado o inválido.")
-                pieChart.setNoDataText("Selecciona un Home para ver los datos.")
+                Log.w("GraphsFragment", "Home ID invalid")
+                pieChart.setNoDataText("Select a home to see the tasks")
                 pieChart.data = null
                 pieChart.invalidate()
             }
@@ -138,12 +138,12 @@ class GraphsFragment : Fragment() {
             when (currentDataType) {
                 GraphDataType.COMPLETED -> {
                     userViewModel.loadCompletedTasksForHome(homeId, currentPeriod)
-                    pieChart.centerText = "Tareas Completadas (${currentPeriod.name})"
+                    pieChart.centerText = "Completed Tasks (${currentPeriod.name})"
                 }
                 GraphDataType.UNFINISHED -> {
 
                     userViewModel.loadUnfinishedTasksForHome(homeId)
-                    pieChart.centerText = "Tareas No Realizadas"
+                    pieChart.centerText = "Uncompleted Tasks"
 
                 }
             }
@@ -152,7 +152,7 @@ class GraphsFragment : Fragment() {
 
     private fun setupPieChart() {
         pieChart.description.isEnabled = false
-        pieChart.centerText = "Tareas Completadas"
+        pieChart.centerText = "Completed Tasks"
         pieChart.animateY(1400)
 
         val legend = pieChart.legend
@@ -168,7 +168,7 @@ class GraphsFragment : Fragment() {
 
     private fun updatePieChartData(tasks: List<Task>) {
         if (tasks.isEmpty()) {
-            pieChart.setNoDataText("No hay tareas completadas en este Home.")
+            pieChart.setNoDataText("There's no completed Tasks in this home.")
             pieChart.data = null
             pieChart.invalidate()
             return
