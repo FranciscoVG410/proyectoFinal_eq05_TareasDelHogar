@@ -11,96 +11,76 @@ import android.widget.RadioGroup
 import android.widget.Spinner
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import com.github.mikephil.charting.charts.PieChart
-import com.github.mikephil.charting.components.Legend
-import com.github.mikephil.charting.data.PieData
-import com.github.mikephil.charting.data.PieDataSet
-import com.github.mikephil.charting.data.PieEntry
-import com.github.mikephil.charting.utils.ColorTemplate
+import valdez.francisco.dingdone.graphics.CustomPieDrawable
+import valdez.francisco.dingdone.graphics.PieSlice
 
 class GraphsFragment : Fragment() {
 
     private val userViewModel: UserViewModel by activityViewModels()
-
     private val homeShareViewModel: HomeShareViewModel by activityViewModels()
 
-    private lateinit var pieChart: PieChart
+    private lateinit var customPieView: View
     private lateinit var spinnerPeriod: Spinner
     private lateinit var rgDataType: RadioGroup
 
     private var currentPeriod: PeriodType = PeriodType.WEEKLY
     private var currentDataType: GraphDataType = GraphDataType.COMPLETED
 
+    private val userColorMap = mutableMapOf<String, Int>()
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_graphs, container, false)
-        pieChart = view.findViewById(R.id.pieChart)
 
+        customPieView = view.findViewById(R.id.customPieChart)
         spinnerPeriod = view.findViewById(R.id.spinnerPeriod)
         rgDataType = view.findViewById(R.id.rgDataType)
 
         setupPeriodSpinner()
-
         setupDataTypeRadioGroup()
 
         return view
     }
 
     private fun setupPeriodSpinner() {
-
         val periodOptions = PeriodType.entries.map { it.name }
-
         val adapter = ArrayAdapter(
             requireContext(),
             android.R.layout.simple_spinner_item,
             periodOptions
-        ).also {
-            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        }
+        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
         spinnerPeriod.adapter = adapter
-
-        val initialPosition = periodOptions.indexOf(PeriodType.WEEKLY.name)
-        spinnerPeriod.setSelection(initialPosition)
+        spinnerPeriod.setSelection(periodOptions.indexOf(PeriodType.WEEKLY.name))
 
         spinnerPeriod.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-
-                val selectedName = periodOptions[position]
-                currentPeriod = PeriodType.valueOf(selectedName)
+                currentPeriod = PeriodType.valueOf(periodOptions[position])
                 Log.d("GraphsFragment", "Period Selected: $currentPeriod")
-
                 if (currentDataType == GraphDataType.COMPLETED) {
                     loadDataForCurrentHome()
                 }
             }
 
-            override fun onNothingSelected(parent: AdapterView<*>?) {
-
-            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
     }
 
     private fun setupDataTypeRadioGroup() {
         rgDataType.setOnCheckedChangeListener { _, checkedId ->
-            when (checkedId) {
-                R.id.rbCompleted -> currentDataType = GraphDataType.COMPLETED
-                R.id.rbUnfinished -> currentDataType = GraphDataType.UNFINISHED
+            currentDataType = when (checkedId) {
+                R.id.rbCompleted -> GraphDataType.COMPLETED
+                R.id.rbUnfinished -> GraphDataType.UNFINISHED
                 else -> return@setOnCheckedChangeListener
             }
-            Log.d("GraphsFragment", "Selected DataType: $currentDataType")
-
             loadDataForCurrentHome()
         }
-
         rgDataType.check(R.id.rbCompleted)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        setupPieChart()
 
         setupSelectedHomeObserver()
 
@@ -119,79 +99,63 @@ class GraphsFragment : Fragment() {
 
     private fun setupSelectedHomeObserver() {
         homeShareViewModel.selectedHomeId.observe(viewLifecycleOwner) { homeId ->
-            if (homeId != null && homeId.isNotEmpty()) {
+            if (!homeId.isNullOrEmpty()) {
                 Log.d("GraphsFragment", "Loading tasks: $homeId")
-
                 loadDataForCurrentHome()
             } else {
                 Log.w("GraphsFragment", "Home ID invalid")
-                pieChart.setNoDataText("Select a home to see the tasks")
-                pieChart.data = null
-                pieChart.invalidate()
+                customPieView.background = null
             }
         }
     }
 
     private fun loadDataForCurrentHome() {
-        val homeId = homeShareViewModel.selectedHomeId.value
-        if (homeId != null && homeId.isNotEmpty()) {
-            when (currentDataType) {
-                GraphDataType.COMPLETED -> {
-                    userViewModel.loadCompletedTasksForHome(homeId, currentPeriod)
-                    pieChart.centerText = "Completed Tasks (${currentPeriod.name})"
-                }
-                GraphDataType.UNFINISHED -> {
+        val homeId = homeShareViewModel.selectedHomeId.value ?: return
 
-                    userViewModel.loadUnfinishedTasksForHome(homeId)
-                    pieChart.centerText = "Uncompleted Tasks"
-
-                }
+        when (currentDataType) {
+            GraphDataType.COMPLETED -> {
+                userViewModel.loadCompletedTasksForHome(homeId, currentPeriod)
+            }
+            GraphDataType.UNFINISHED -> {
+                userViewModel.loadUnfinishedTasksForHome(homeId)
             }
         }
     }
 
-    private fun setupPieChart() {
-        pieChart.description.isEnabled = false
-        pieChart.centerText = "Completed Tasks"
-        pieChart.animateY(1400)
-
-        val legend = pieChart.legend
-
-        legend.orientation = Legend.LegendOrientation.VERTICAL
-
-        legend.textSize = 20f
-        legend.formSize = 14f
-        legend.isWordWrapEnabled = true
-        legend.xEntrySpace = 10f
-        legend.yEntrySpace = 8f
-    }
-
     private fun updatePieChartData(tasks: List<Task>) {
         if (tasks.isEmpty()) {
-            pieChart.setNoDataText("There's no completed Tasks in this home.")
-            pieChart.data = null
-            pieChart.invalidate()
+            customPieView.background = null
             return
         }
 
-        val allCompletedMembers = tasks.flatMap { it.member }
+        val allMembers = tasks.flatMap { it.member }
+        val taskCounts = allMembers.groupBy { it }.mapValues { it.value.size }
+        val total = taskCounts.values.sum().toFloat()
 
-        val taskCounts = allCompletedMembers
-            .groupBy { it }
-            .mapValues { it.value.size.toFloat() }
-
-        val entries = taskCounts.map { (memberId, count) ->
-            PieEntry(count, resolveUserName(memberId))
+        taskCounts.keys.forEach { userId ->
+            if (!userColorMap.containsKey(userId)) {
+                userColorMap[userId] = getRandomColor()
+            }
         }
 
-        val dataSet = PieDataSet(entries, "")
-        dataSet.colors = ColorTemplate.MATERIAL_COLORS.toList()
-        dataSet.sliceSpace = 3f
-        dataSet.valueTextSize = 25f
+        val slices = taskCounts.map { (userId, count) ->
+            PieSlice(
+                label = resolveUserName(userId),
+                angle = (count / total) * 360f,
+                color = userColorMap[userId]!!,
+                count = count
+            )
+        }
 
-        val data = PieData(dataSet)
-        pieChart.data = data
-        pieChart.invalidate()
+        customPieView.background = CustomPieDrawable(requireContext(), slices)
+    }
+
+    private fun getRandomColor(): Int {
+        val rnd = java.util.Random()
+        val r = rnd.nextInt(256)
+        val g = rnd.nextInt(256)
+        val b = rnd.nextInt(256)
+        return android.graphics.Color.rgb(r, g, b)
     }
 
     private fun resolveUserName(userId: String): String {
