@@ -6,7 +6,8 @@ import android.graphics.drawable.Drawable
 
 class CustomPieDrawable(
     val context: Context,
-    private val slices: List<PieSlice>
+    private val slices: List<PieSlice>,
+    private val isCompleted: Boolean = true
 ) : Drawable() {
 
     private val paintSlice = Paint().apply {
@@ -59,7 +60,8 @@ class CustomPieDrawable(
             paintSlice.color = slice.color
             canvas.drawRect(40f, currentY, 40f + legendBoxSize, currentY + legendBoxSize, paintSlice)
 
-            val labelWithCount = "${slice.label} ${slice.count} Tasks Completed"
+            val taskLabel = if (isCompleted) "Tasks Completed" else "Unfinished Tasks"
+            val labelWithCount = "${slice.label} ${slice.count} $taskLabel"
             canvas.drawText(labelWithCount, 100f, currentY + legendBoxSize * 0.8f, paintText)
             currentY += legendBoxSize + 20f
         }

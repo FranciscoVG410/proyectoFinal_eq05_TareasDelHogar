@@ -146,8 +146,8 @@ class GraphsFragment : Fragment() {
                 count = count
             )
         }
-
-        customPieView.background = CustomPieDrawable(requireContext(), slices)
+        val isCompletedFlag = currentDataType == GraphDataType.COMPLETED
+        customPieView.background = CustomPieDrawable(requireContext(), slices, isCompletedFlag)
     }
 
     private fun getRandomColor(): Int {
