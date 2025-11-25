@@ -11,6 +11,10 @@ import android.widget.*
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
+import com.google.firebase.firestore.FirebaseFirestore
+
 
 class NewTaskFragment : Fragment() {
 
@@ -21,7 +25,15 @@ class NewTaskFragment : Fragment() {
     private lateinit var chipsContainer: LinearLayout
     private lateinit var dayButtons: List<Button>
     private val userList = mutableListOf<UserData>()
-    private var date: String = ""
+    private val selectedDays = mutableSetOf<String>()
+    private val taskViewModel: TaskViewModel by viewModels()
+    private val homeViewModel: HomeShareViewModel by activityViewModels()
+    private val houseMemberNames = mutableListOf<String>()
+    private var isSpinnerInitialized = false
+
+
+
+
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -29,53 +41,64 @@ class NewTaskFragment : Fragment() {
     ): View? {
         val view = inflater.inflate(R.layout.fragment_new_task, container, false)
 
+
+        val homes = listOf<Home>() // tu lista real
+
         taskName = view.findViewById(R.id.taskName)
         taskDesc = view.findViewById(R.id.taskDesc)
         saveButton = view.findViewById(R.id.saveButton)
         memberSpinner = view.findViewById(R.id.memberSpinner)
         chipsContainer = view.findViewById(R.id.chipsContainer)
+        
+        // Back button in header
+        val backButtonHeader: ImageButton = view.findViewById(R.id.backButtonHeader)
+        backButtonHeader.setOnClickListener {
+            parentFragmentManager.popBackStack()
+        }
 
         // Days buttons
         val daysContainer = view.findViewById<GridLayout>(R.id.daysContainer)
         dayButtons = (0 until daysContainer.childCount).map { daysContainer.getChildAt(it) as Button }
 
-        // Spinner data
-        val members = resources.getStringArray(R.array.members_list)
-        memberSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, members)
+        // Load house members dynamically
+        loadHouseMembers()
 
-        // Handle day selection
+        // Handle day selection - allow multiple selection
         dayButtons.forEach { button ->
             Log.d("Dias", button.text.toString())
+            button.tag = "unselected" // Initialize tag
 
             button.setOnClickListener {
-                dayButtons.forEach { other ->
-                    other.setBackgroundResource(R.drawable.button_outline)
-                    other.setTextColor(ContextCompat.getColor(requireContext(), R.color.purple))
-                    other.tag = "unselected"
+                val day = button.text.toString()
+                
+                if (button.tag == "selected") {
+                    // Deselect
+                    button.setBackgroundResource(R.drawable.button_outline)
+                    button.setTextColor(ContextCompat.getColor(requireContext(), R.color.purple))
+                    button.tag = "unselected"
+                    selectedDays.remove(date(day))
+                } else {
+                    // Select
+                    button.setBackgroundResource(R.drawable.button_enabled)
+                    button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                    button.tag = "selected"
+                    selectedDays.add(date(day))
                 }
-
-                button.setBackgroundResource(R.drawable.button_enabled)
-                button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-                button.tag = "selected"
-                date = button.text.toString()
-
-
-//                else {
-//                    button.setBackgroundResource(R.drawable.button_enabled)
-//                    button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-//                    button.tag = "selected"
-//                }
+                
                 checkFormState()
             }
         }
 
-        // Simple chips simulation
         memberSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(
                 parent: AdapterView<*>, view: View?, position: Int, id: Long
             ) {
+                if (!isSpinnerInitialized) {
+                    isSpinnerInitialized = true
+                    return
+                }
                 val name = parent.getItemAtPosition(position).toString()
-                if (name.isNotBlank()) addChip(name)
+                if (name.isNotBlank() && position > 0) addChip(name)
                 checkFormState()
             }
 
@@ -86,17 +109,120 @@ class NewTaskFragment : Fragment() {
         taskName.setOnFocusChangeListener { _, _ -> checkFormState() }
         taskDesc.setOnFocusChangeListener { _, _ -> checkFormState() }
 
-        saveButton.setOnClickListener{
+        saveButton.setOnClickListener {
 
-            checkFormState()
+            val homeId = homeViewModel.selectedHomeId.value
 
-            var intent = Intent(requireContext(), TasksActivity::class.java)
-            intent.putExtra("newTask", createTask())
-            startActivity(intent)
+            if (homeId == null) {
+                Toast.makeText(requireContext(), "No hay un hogar seleccionado", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
 
+            val db = FirebaseFirestore.getInstance()
+            val taskRef = db.collection("homes")
+                .document(homeId)
+                .collection("tasks")
+                .document()
+            
+            val task = createTask(taskRef.id)
+
+            taskRef.set(task)
+                .addOnSuccessListener {
+                    Toast.makeText(requireContext(), "Tarea creada!", Toast.LENGTH_SHORT).show()
+                    parentFragmentManager.popBackStack()
+                }
+                .addOnFailureListener {
+                    Toast.makeText(requireContext(), "Error al guardar", Toast.LENGTH_LONG).show()
+                }
+        }
+
+
+
+        // Bottom back button
+        val backButton: Button = view.findViewById(R.id.backButton)
+        backButton.setOnClickListener {
+            parentFragmentManager.popBackStack()
         }
 
         return view
+    }
+
+    private fun loadHouseMembers() {
+        val homeId = homeViewModel.selectedHomeId.value
+        
+        if (homeId == null) {
+            Toast.makeText(requireContext(), "No hay un hogar seleccionado", Toast.LENGTH_SHORT).show()
+            val placeholder = listOf("Seleccionar miembro...")
+            memberSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, placeholder)
+            isSpinnerInitialized = false
+            return
+        }
+
+        FirebaseFirestore.getInstance()
+            .collection("homes")
+            .document(homeId)
+            .get()
+            .addOnSuccessListener { document ->
+                if (document != null && document.exists()) {
+                    val memberIds = document.get("members") as? List<String> ?: emptyList()
+                    
+                    if (memberIds.isEmpty()) {
+                        houseMemberNames.clear()
+                        val membersWithPlaceholder = listOf("Seleccionar miembro...")
+                        memberSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, membersWithPlaceholder)
+                        isSpinnerInitialized = false
+                        return@addOnSuccessListener
+                    }
+
+                    houseMemberNames.clear()
+                    var loadedCount = 0
+
+                    memberIds.forEach { userId ->
+                        FirebaseFirestore.getInstance()
+                            .collection("users")
+                            .document(userId)
+                            .get()
+                            .addOnSuccessListener { userDoc ->
+                                if (userDoc != null && userDoc.exists()) {
+                                    val userName = userDoc.getString("name") ?: "Unknown"
+                                    houseMemberNames.add(userName)
+                                }
+                                
+                                loadedCount++
+                                if (loadedCount == memberIds.size) {
+                                    val membersWithPlaceholder = mutableListOf("Seleccionar miembro...")
+                                    membersWithPlaceholder.addAll(houseMemberNames)
+                                    memberSpinner.adapter = ArrayAdapter(
+                                        requireContext(),
+                                        android.R.layout.simple_spinner_dropdown_item,
+                                        membersWithPlaceholder
+                                    )
+                                    isSpinnerInitialized = false
+                                }
+                            }
+                            .addOnFailureListener { e ->
+                                Log.w("NewTaskFragment", "Error loading user $userId: $e")
+                                loadedCount++
+                                if (loadedCount == memberIds.size) {
+                                    val membersWithPlaceholder = mutableListOf("Seleccionar miembro...")
+                                    membersWithPlaceholder.addAll(houseMemberNames)
+                                    memberSpinner.adapter = ArrayAdapter(
+                                        requireContext(),
+                                        android.R.layout.simple_spinner_dropdown_item,
+                                        membersWithPlaceholder
+                                    )
+                                    isSpinnerInitialized = false
+                                }
+                            }
+                    }
+                } else {
+                    Toast.makeText(requireContext(), "Hogar no encontrado", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.w("NewTaskFragment", "Error loading home: $e")
+                Toast.makeText(requireContext(), "Error al cargar miembros", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun addChip(name: String) {
@@ -121,10 +247,11 @@ class NewTaskFragment : Fragment() {
         checkFormState()
     }
 
-    private fun checkFormState() {
+    private fun checkFormState(isButtonClick: Boolean = false) {
         val valid = taskName.text.isNotBlank() && taskDesc.text.isNotBlank()
         val anyDaySelected = dayButtons.any { it.tag == "selected" }
         val anyNameInChips = chipsContainer.childCount > 0
+
 
         if (valid && anyDaySelected && anyNameInChips) {
             saveButton.isEnabled = true
@@ -135,7 +262,7 @@ class NewTaskFragment : Fragment() {
         } else {
             saveButton.isEnabled = false
             saveButton.setBackgroundResource(R.drawable.button_disabled)
-            if (taskName.text.isBlank() || taskDesc.text.isBlank()) {
+            if ((taskName.text.isBlank() || taskDesc.text.isBlank()) && isButtonClick) {
                 taskName.setBackgroundResource(R.drawable.edittext_bg_error)
                 taskDesc.setBackgroundResource(R.drawable.edittext_bg_error)
             }
@@ -159,9 +286,16 @@ class NewTaskFragment : Fragment() {
 
     }
 
-    fun createTask(): Task{
-
-        return Task(taskName.text.toString(), taskDesc.text.toString(), userList, date(date), "Pendiente")
-
+    fun createTask(taskId: String): Task {
+        return Task(
+            id = taskId,
+            nombre = taskName.text.toString(),
+            descripcio = taskDesc.text.toString(),
+            member = userList.map { it.nombre },
+            date = selectedDays.toList(),
+            state = "Pendiente",
+            editableBy = emptyList()
+        )
     }
+
 }

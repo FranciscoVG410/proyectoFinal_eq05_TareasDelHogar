@@ -20,9 +20,10 @@
 
             <TextView
                 android:layout_width="match_parent"
-                android:layout_height="65dp"
+                android:layout_height="100dp"
                 android:background="@color/purple"
                 android:gravity="center"
+                android:paddingTop="26dp"
                 android:text="Configuration"
                 android:textColor="@color/white"
                 android:textSize="25sp"
@@ -134,6 +135,7 @@
         android:background="@color/white"
         app:menu="@menu/bottom_navmenu"
         app:itemIconSize="50dp"
+        app:itemIconTint="@color/purple"
         app:labelVisibilityMode="unlabeled"
         />
 </LinearLayout>

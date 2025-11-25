@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/white">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvConfig"
+            android:layout_width="match_parent"
+            android:paddingTop="26dp"
+            android:layout_height="100dp"
+            android:background="@color/purple"
+            android:gravity="center"
+            android:text="CONFIGURATION"
+            android:textColor="@color/white"
+            android:textSize="25sp" />
+
+        <TextView
+            android:id="@+id/tvHome"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:background="@color/purple"
+            android:gravity="center_horizontal"
+            android:text="Home"
+            android:textColor="@color/white"
+            android:textSize="15sp" />
+
+        <android.widget.Button
+            android:id="@+id/btnCreateHome"
+            android:layout_width="300dp"
+            android:layout_height="40dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="30dp"
+            android:background="@drawable/fondobtn"
+            android:text="CREATE HOME"
+            android:textColor="@color/white" />
+
+        <android.widget.Button
+            android:id="@+id/btnJoinHome"
+            android:layout_width="300dp"
+            android:layout_height="40dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="30dp"
+            android:background="@drawable/contorno"
+            android:text="JOIN HOME"
+            android:textColor="@color/purple" />
+    </LinearLayout>
+</LinearLayout>
+

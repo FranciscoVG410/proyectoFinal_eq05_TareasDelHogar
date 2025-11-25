@@ -86,7 +86,7 @@ class TaskDateAdapter(private var items: List<TaskListItem>) : RecyclerView.Adap
                 val chipContext = ContextThemeWrapper(chgMembers.context, com.google.android.material.R.style.Theme_MaterialComponents_Light)
                 val chip = Chip(chipContext).apply {
 
-                    text = member.nombre
+                    text = member
                     isClickable = false
                     isCheckable = false
                     setChipBackgroundColorResource(R.color.btnBackground)
@@ -103,16 +103,16 @@ class TaskDateAdapter(private var items: List<TaskListItem>) : RecyclerView.Adap
             itemView.setOnClickListener{
 
                 val context = itemView.context
-                val intent = Intent(context, TaskDetail::class.java).apply {
+//                val intent = Intent(context, TaskDetail::class.java).apply {
+//
+//                    putExtra("nombre", item.task.nombre)
+//                    putExtra("descripcion", item.task.descripcio)
+//                    putExtra("estado", item.task.state)
+//                    putStringArrayListExtra("miembros", ArrayList(item.task.member.map { it.nombre }))
+//
+//                }
 
-                    putExtra("nombre", item.task.nombre)
-                    putExtra("descripcion", item.task.descripcio)
-                    putExtra("estado", item.task.state)
-                    putStringArrayListExtra("miembros", ArrayList(item.task.member.map { it.nombre }))
-
-                }
-
-                context.startActivity(intent)
+//                context.startActivity(intent)
 
             }
 
