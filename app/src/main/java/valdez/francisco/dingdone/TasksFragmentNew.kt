@@ -28,7 +28,7 @@ class TasksFragmentNew : Fragment() {
     private val homeViewModel: HomeShareViewModel by activityViewModels()
     private val uvm: UserViewModel by viewModels()
     private val auth = FirebaseAuth.getInstance()
-    private lateinit var noTasksText: View
+    private lateinit var noTasksText: TextView
     private lateinit var layoutFail: View
     private lateinit var textFail: TextView
     private lateinit var toast: Toast
@@ -61,53 +61,62 @@ class TasksFragmentNew : Fragment() {
             uvm.loadUserHomes(userId)
         }
 
-
-
-        // OBSERVAR LAS HOMES DEL USUARIO
         uvm.userHomes.observe(viewLifecycleOwner) { homes ->
 
-            buttonsContainer.removeAllViews()  // limpiamos botones anteriores
+            buttonsContainer.removeAllViews()
 
-            homes.forEach { home ->
+            if(homes.size > 1){
+                buttonsContainer.visibility = View.VISIBLE
+                homes.forEach { home ->
 
-                val button = Button(requireContext()).apply {
-                    text = home.name
-                    layoutParams = LinearLayout.LayoutParams(
-                        190,  // ancho fijo
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                    ).apply {
-                        setMargins(12, 0, 12, 0)
+                    val button = Button(requireContext()).apply {
+                        text = home.name
+                        layoutParams = LinearLayout.LayoutParams(
+                            190,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply {
+                            setMargins(12, 0, 12, 0)
+                        }
+                        background = ContextCompat.getDrawable(
+                            requireContext(),
+                            R.drawable.rounded_button_purple
+                        )
                     }
-                    background = ContextCompat.getDrawable(
-                        requireContext(),
-                        R.drawable.rounded_button_purple
-                    )
+
+                    button.setOnClickListener {
+                        homeViewModel.selectHome(home.id)
+                        uvm.loadTasksForHome(home.id)
+                        updateButtonStyles(button)
+                    }
+
+                    buttonsContainer.addView(button)
                 }
 
-                // Evento al pulsar
-                button.setOnClickListener {
-                    homeViewModel.selectHome(home.id)
-                    uvm.loadTasksForHome(home.id)
-                    updateButtonStyles(button)
+                if (homes.isNotEmpty()) {
+                    val firstHome = homes.first()
+                    homeViewModel.selectHome(firstHome.id)
+                    uvm.loadTasksForHome(firstHome.id)
+
+                    if (buttonsContainer.childCount > 0) {
+                        val firstButton = buttonsContainer.getChildAt(0) as Button
+                        updateButtonStyles(firstButton)
+                    }
                 }
+            }else if(homes.size == 1) {
 
-                buttonsContainer.addView(button)
-            }
+                buttonsContainer.visibility = View.GONE
+                val uniqueHome = homes.first()
 
-            // Seleccionar automáticamente la primera home
-            if (homes.isNotEmpty()) {
-                val firstHome = homes.first()
-                homeViewModel.selectHome(firstHome.id)
-                uvm.loadTasksForHome(firstHome.id)
+                homeViewModel.selectHome(uniqueHome.id)
+                uvm.loadTasksForHome(uniqueHome.id)
 
-                if (buttonsContainer.childCount > 0) {
-                    val firstButton = buttonsContainer.getChildAt(0) as Button
-                    updateButtonStyles(firstButton)
-                }
+            }else if(homes.size == 0){
+
+                mostrarText()
+
             }
         }
 
-        // OBSERVAR LAS TAREAS
         uvm.homeTasks.observe(viewLifecycleOwner) { map ->
             val selectedHomeId = homeViewModel.selectedHomeId.value
 
@@ -117,9 +126,6 @@ class TasksFragmentNew : Fragment() {
             }
         }
 
-
-
-        // FAB – Crear tarea
         val fabAddTask: FloatingActionButton = view.findViewById(R.id.fabAddTask)
         fabAddTask.setOnClickListener {
 
@@ -146,6 +152,14 @@ class TasksFragmentNew : Fragment() {
         return view
     }
 
+    private fun mostrarText(){
+
+        noTasksText.visibility = View.VISIBLE
+        noTasksText.text = "No current homes..."
+        recyclerView.visibility = View.GONE
+
+    }
+
     private fun updateButtonStyles(selectedButton: Button) {
         for (i in 0 until buttonsContainer.childCount) {
             val button = buttonsContainer.getChildAt(i) as Button
@@ -170,13 +184,13 @@ class TasksFragmentNew : Fragment() {
         allTasks.clear()
         allTasks.addAll(tasks)
 
-        // Update adapter with correct homeId
         taskAdapter = TaskDateAdapterNew(emptyList(), homeId)
         recyclerView.adapter = taskAdapter
 
-        // Mostrar mensaje si no hay tareas
         if (allTasks.isEmpty()) {
+
             noTasksText.visibility = View.VISIBLE
+            noTasksText.text = "No current tasks..."
             recyclerView.visibility = View.GONE
             return
         } else {
@@ -184,11 +198,9 @@ class TasksFragmentNew : Fragment() {
             recyclerView.visibility = View.VISIBLE
         }
 
-        // Separate pending and completed tasks
         val pendingTasks = allTasks.filter { it.state != "Completada" }
         val completedTasks = allTasks.filter { it.state == "Completada" }
 
-        // Agrupar tareas pendientes por día
         val groupedPendingTasks = mutableMapOf<String, MutableList<Task>>()
 
         for (task in pendingTasks) {
@@ -204,7 +216,6 @@ class TasksFragmentNew : Fragment() {
             "Viernes", "Sabado", "Domingo"
         )
 
-        // Add pending tasks grouped by day
         for (day in weekDays) {
             val dayTasks = groupedPendingTasks[day]
 
@@ -214,7 +225,6 @@ class TasksFragmentNew : Fragment() {
             }
         }
 
-        // Add completed tasks section at the bottom
         if (completedTasks.isNotEmpty()) {
             items.add(TaskListItem.Header("Completadas"))
             items.addAll(completedTasks.map { TaskListItem.TaskItem(it) })
