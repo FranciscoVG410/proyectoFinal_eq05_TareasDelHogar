@@ -94,4 +94,17 @@
         app:layout_constraintStart_toEndOf="@+id/tv_namePofile"
         tools:layout_editor_absoluteY="97dp" />
 
+    <Button
+        android:id="@+id/btn_logout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="48dp"
+        android:backgroundTint="@color/purple"
+        android:text="Logout"
+        android:textColor="@color/white"
+        android:textSize="18sp"
+        android:paddingHorizontal="32dp"
+        android:paddingVertical="12dp" />
+
 </LinearLayout>

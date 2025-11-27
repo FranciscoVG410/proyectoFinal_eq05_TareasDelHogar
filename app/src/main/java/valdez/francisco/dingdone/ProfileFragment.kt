@@ -1,10 +1,12 @@
 package valdez.francisco.dingdone
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.TextView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -14,6 +16,7 @@ class ProfileFragment : Fragment() {
     private lateinit var tvCompleteName: TextView
     private lateinit var tvRealEmail: TextView
     private lateinit var tvNumberCompletedTasks: TextView
+    private lateinit var btnLogout: Button
 
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
@@ -26,9 +29,20 @@ class ProfileFragment : Fragment() {
         tvCompleteName = view.findViewById(R.id.tv_completeName)
         tvRealEmail = view.findViewById(R.id.tv_realEmail)
         tvNumberCompletedTasks = view.findViewById(R.id.tv_numberCompletedTasks)
+        btnLogout = view.findViewById(R.id.btn_logout)
 
         loadUserData()
+        setupLogoutButton()
         return view
+    }
+
+    private fun setupLogoutButton() {
+        btnLogout.setOnClickListener {
+            auth.signOut()
+            val intent = Intent(requireContext(), LoginActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+        }
     }
 
     private fun loadUserData() {
