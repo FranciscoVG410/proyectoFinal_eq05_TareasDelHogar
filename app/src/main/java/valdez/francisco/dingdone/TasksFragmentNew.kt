@@ -8,6 +8,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.collection.mutableLongListOf
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -184,51 +185,120 @@ class TasksFragmentNew : Fragment() {
         allTasks.clear()
         allTasks.addAll(tasks)
 
+        if(recyclerView.adapter == null || (recyclerView.adapter as? TaskDateAdapterNew) == null){
+
+            taskAdapter == TaskDateAdapterNew(emptyList(), homeId)
+            recyclerView.adapter = taskAdapter
+
+        }
+
         taskAdapter = TaskDateAdapterNew(emptyList(), homeId)
         recyclerView.adapter = taskAdapter
 
-        if (allTasks.isEmpty()) {
+        val calendar = java.util.Calendar.getInstance()
+        val dayOfWeek = calendar.get(java.util.Calendar.DAY_OF_WEEK)
 
-            noTasksText.visibility = View.VISIBLE
-            noTasksText.text = "No current tasks..."
-            recyclerView.visibility = View.GONE
-            return
-        } else {
-            noTasksText.visibility = View.GONE
-            recyclerView.visibility = View.VISIBLE
+        val todayString = when (dayOfWeek){
+
+            java.util.Calendar.MONDAY -> "Lunes"
+            java.util.Calendar.TUESDAY -> "Martes"
+            java.util.Calendar.WEDNESDAY -> "Miercoles"
+            java.util.Calendar.THURSDAY -> "Jueves"
+            java.util.Calendar.FRIDAY -> "Viernes"
+            java.util.Calendar.SUNDAY -> "Sabado"
+            java.util.Calendar.SATURDAY-> "Domingo"
+            else -> ""
+
         }
 
-        val pendingTasks = allTasks.filter { it.state != "Completada" }
-        val completedTasks = allTasks.filter { it.state == "Completada" }
+        val pendingTaskToday = allTasks.filter { task ->
 
-        val groupedPendingTasks = mutableMapOf<String, MutableList<Task>>()
+            task.state != "Completada" && task.date.contains(todayString)
 
-        for (task in pendingTasks) {
-            for (day in task.date) {
-                groupedPendingTasks.getOrPut(day) { mutableListOf() }.add(task)
-            }
+        }
+
+        val completedTask = allTasks.filter { task ->
+
+            task.state == "Completada" && task.date.contains(todayString)
+
+        }
+
+        if(pendingTaskToday.isEmpty() && completedTask.isEmpty()){
+
+            noTasksText.visibility = View.VISIBLE
+            noTasksText.text = "not task for today (${todayString})"
+            recyclerView.visibility = View.GONE
+            return
+
+        }else {
+
+            noTasksText.visibility = View.GONE
+            recyclerView.visibility = View.VISIBLE
+
         }
 
         val items = mutableListOf<TaskListItem>()
 
-        val weekDays = listOf(
-            "Lunes", "Martes", "Miercoles", "Jueves",
-            "Viernes", "Sabado", "Domingo"
-        )
+        if(pendingTaskToday.isNotEmpty()){
 
-        for (day in weekDays) {
-            val dayTasks = groupedPendingTasks[day]
+            items.add(TaskListItem.Header("Para hoy (${todayString})"))
+            items.addAll(pendingTaskToday.map { TaskListItem.TaskItem(it) })
 
-            if (!dayTasks.isNullOrEmpty()) {
-                items.add(TaskListItem.Header(day))
-                items.addAll(dayTasks.map { TaskListItem.TaskItem(it) })
-            }
+        }else {
+
+            items.add(TaskListItem.Header("Para hoy (${todayString})"))
+
         }
 
-        if (completedTasks.isNotEmpty()) {
+        if(completedTask.isNotEmpty()){
+
             items.add(TaskListItem.Header("Completadas"))
-            items.addAll(completedTasks.map { TaskListItem.TaskItem(it) })
+            items.addAll(completedTask.map { TaskListItem.TaskItem(it) })
+
         }
+
+//        if (allTasks.isEmpty()) {
+//
+//            noTasksText.visibility = View.VISIBLE
+//            noTasksText.text = "No current tasks..."
+//            recyclerView.visibility = View.GONE
+//            return
+//        } else {
+//            noTasksText.visibility = View.GONE
+//            recyclerView.visibility = View.VISIBLE
+//        }
+//
+//        val pendingTasks = allTasks.filter { it.state != "Completada" }
+//        val completedTasks = allTasks.filter { it.state == "Completada" }
+//
+//        val groupedPendingTasks = mutableMapOf<String, MutableList<Task>>()
+//
+//        for (task in pendingTasks) {
+//            for (day in task.date) {
+//                groupedPendingTasks.getOrPut(day) { mutableListOf() }.add(task)
+//            }
+//        }
+//
+//        val items = mutableListOf<TaskListItem>()
+//
+//        val weekDays = listOf(
+//            "Lunes", "Martes", "Miercoles", "Jueves",
+//            "Viernes", "Sabado", "Domingo"
+//        )
+//
+//        for (day in weekDays) {
+//            val dayTasks = groupedPendingTasks[day]
+//
+//            if (!dayTasks.isNullOrEmpty()) {
+//                items.add(TaskListItem.Header(day))
+//                items.addAll(dayTasks.map { TaskListItem.TaskItem(it) })
+//            }
+//        }
+//
+//        if (completedTasks.isNotEmpty()) {
+//            items.add(TaskListItem.Header("Completadas"))
+//            items.addAll(completedTasks.map { TaskListItem.TaskItem(it) })
+//        }
 
         taskAdapter.updateItem(items)
     }
