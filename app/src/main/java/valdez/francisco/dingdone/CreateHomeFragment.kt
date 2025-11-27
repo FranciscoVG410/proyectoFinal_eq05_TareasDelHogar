@@ -9,6 +9,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+//import androidx.compose.ui.semantics.text
 import androidx.fragment.app.Fragment
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -41,7 +42,6 @@ class CreateHomeFragment : Fragment() {
         val etHomeName: EditText = view.findViewById(R.id.et_homeName)
         val btnCancel: Button = view.findViewById(R.id.btnCancel)
         val btnCreate: Button = view.findViewById(R.id.btnCreate)
-        val tvRandomCode: TextView = view.findViewById(R.id.tv_randomCode)
 
         btnCreate.setOnClickListener {
             val homeName = etHomeName.text.toString()
@@ -53,20 +53,32 @@ class CreateHomeFragment : Fragment() {
                 toast.show()
                 etHomeName.setBackgroundResource(R.drawable.error_rounded_edit_text)
             } else {
-                createHomeInFirestore(homeName) { invitationCode ->
-                    // Mostrar código en pantalla
-                    tvRandomCode.text = invitationCode
+                createHomeInFirestore(homeName) { id ->
 
-                    // Pasar a siguiente fragmento
-                    val fragment = HomeCreatedFragment().apply {
-                        arguments = Bundle().apply {
-                            putString("invitationCode", invitationCode)
+                    if (id != null) {
+
+
+                        val fragment = HomeCreatedFragment().apply {
+
+                            arguments = Bundle().apply {
+
+                                putString("invitationCode", id)
+
+                            }
+
                         }
+                        parentFragmentManager.beginTransaction()
+                            .replace(R.id.fragment_container, fragment)
+                            .addToBackStack(null)
+                            .commit()
+                    } else {
+
+                        textFail.text = "Error creating home"
+                        toast.view = layoutFail
+                        toast.show()
+
                     }
-                    parentFragmentManager.beginTransaction()
-                        .replace(R.id.fragment_container, fragment)
-                        .addToBackStack(null)
-                        .commit()
+
                 }
             }
         }
@@ -78,20 +90,18 @@ class CreateHomeFragment : Fragment() {
         return view
     }
 
-    /**
-     * Crea una Home en Firestore y devuelve el código de invitación.
-     */
     private fun createHomeInFirestore(homeName: String, callback: (String?) -> Unit) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid
         if (userId == null) {
+
             Log.w("CreateHome", "No authenticated user")
             callback(null)
             return
+
         }
 
         val db = FirebaseFirestore.getInstance()
 
-        // 1) Crear documento home con ID automático
         val newHomeRef = db.collection("homes").document()
         val homeId = newHomeRef.id
         val invitationCode = homeId.takeLast(5).uppercase()
@@ -104,49 +114,25 @@ class CreateHomeFragment : Fragment() {
             "invitationCode" to invitationCode,
             "createdAt" to FieldValue.serverTimestamp()
         )
-
-        // 2) Guardar home
-        newHomeRef.set(homeData)
-            .addOnSuccessListener {
+        newHomeRef.set(homeData).addOnSuccessListener {
                 Log.d("CreateHome", "Home created: $homeId")
 
-                // 3) Crear relación user_home (tabla mediadora)
-                // Puedes usar un id compuesto "userId_homeId" o dejar que Firestore genere uno.
-                val userHomeData = hashMapOf(
-                    "userId" to userId,
-                    "homeId" to homeId,
-                    "role" to "owner",
-                    "joinedAt" to FieldValue.serverTimestamp()
-                )
+                val userRef = db.collection("users").document(userId)
+                userRef.update("homes", FieldValue.arrayUnion(homeId)).addOnSuccessListener {
+                    Log.d("CreateHome", "User document updated with homeId")
+                    // todo ok -> devolver invitation code
+                    callback(invitationCode)
+                }.addOnFailureListener {
+                    e ->
+                    Log.w("CreateHome", "Failed updating user doc: $e")
+                    callback(invitationCode)
+                }
+        }.addOnFailureListener {
+            e ->
+            Log.w("CreateHome", "Failed creating user_home: $e")
+            callback(null)
+        }
 
-                db.collection("user_home")
-                    .add(userHomeData)
-                    .addOnSuccessListener { relDoc ->
-                        Log.d("CreateHome", "user_home created: ${relDoc.id}")
-
-                        // 4) Opcional: actualizar documento user con arrayUnion(homeId)
-                        val userRef = db.collection("users").document(userId)
-                        userRef.update("homes", FieldValue.arrayUnion(homeId))
-                            .addOnSuccessListener {
-                                Log.d("CreateHome", "User document updated with homeId")
-                                // todo ok -> devolver invitation code
-                                callback(invitationCode)
-                            }
-                            .addOnFailureListener { e ->
-                                Log.w("CreateHome", "Failed updating user doc: $e")
-                                // aunque falle actualizar el user doc, la home y relación existen
-                                callback(invitationCode)
-                            }
-                    }
-                    .addOnFailureListener { e ->
-                        Log.w("CreateHome", "Failed creating user_home: $e")
-                        callback(null)
-                    }
-            }
-            .addOnFailureListener { e ->
-                Log.w("CreateHome", "Failed creating home: $e")
-                callback(null)
-            }
     }
 
 }

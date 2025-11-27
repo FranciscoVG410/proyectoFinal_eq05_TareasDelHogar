@@ -18,6 +18,9 @@ import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class TaskDetailFragment : Fragment() {
 
@@ -25,6 +28,12 @@ class TaskDetailFragment : Fragment() {
     private val homeViewModel: HomeShareViewModel by activityViewModels()
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
+
+    private lateinit var layoutSucces: View
+    private lateinit var textSuccess: TextView
+    private lateinit var layoutFail: View
+    private lateinit var textFail: TextView
+    private lateinit var toast: Toast
     
     private var currentUserName: String = ""
     private var homeOwnerId: String = ""
@@ -36,6 +45,12 @@ class TaskDetailFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.activity_task_detail, container, false)
+
+        layoutFail = inflater.inflate(R.layout.custome_toast_fail, null)
+        textFail = layoutFail.findViewById(R.id.txtTextToastF)
+        layoutSucces = inflater.inflate(R.layout.custome_toast_success, null)
+        textSuccess = layoutSucces.findViewById(R.id.txtTextToastS)
+        toast = Toast(requireContext())
 
         val taskId = arguments?.getString("taskId") ?: ""
         val homeId = arguments?.getString("homeId") ?: ""
@@ -51,9 +66,11 @@ class TaskDetailFragment : Fragment() {
         val chgMiembros: ChipGroup = view.findViewById(R.id.chgMembersTaskDetal)
         val btnReturn: Button = view.findViewById(R.id.btnBackHome)
 
+        val todayDate = getTodayDateString()
+
         tvNombre.text = nombre
         tvDescripcion.text = descripcion
-        
+
         btnChangeState.text = estado
         if (btnChangeState.text == "Completada") {
             btnChangeState.setBackgroundResource(R.drawable.item_completed)
@@ -61,8 +78,30 @@ class TaskDetailFragment : Fragment() {
             btnChangeState.setBackgroundResource(R.drawable.item_pending)
         }
 
+
+
         val currentUserId = auth.currentUser?.uid
         if (currentUserId != null) {
+
+            db.collection("homes").document(homeId)
+                .collection("tasks").document(taskId)
+                .collection("history").document(todayDate)
+                .get().addOnSuccessListener { document ->
+
+                    if(document.exists()){
+
+                        btnChangeState.text = "Completada"
+                        btnChangeState.setBackgroundResource(R.drawable.item_completed)
+
+                    }else {
+
+                        btnChangeState.text = "Pendiente"
+                        btnChangeState.setBackgroundResource(R.drawable.item_pending)
+
+                    }
+
+                }
+
             db.collection("users").document(currentUserId).get()
                 .addOnSuccessListener { userDoc ->
                     currentUserName = userDoc.getString("name") ?: ""
@@ -85,12 +124,71 @@ class TaskDetailFragment : Fragment() {
                 }
         }
 
+
         btnChangeState.setOnClickListener {
             if (!canEdit) {
                 Toast.makeText(requireContext(), "No tienes permiso para editar esta tarea", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            
+
+            var currentState = btnChangeState.text.toString()
+            val hisotryRef = db.collection("homes").document(homeId)
+                .collection("tasks").document(taskId)
+                .collection("history").document(todayDate)
+
+            if(currentState == "Pendiente"){
+
+                    val completionData = hashMapOf(
+
+                        "completedBy" to auth.currentUser?.uid,
+                        "completedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                        "status" to "Completada"
+
+                    )
+                hisotryRef.set(completionData)
+                    .addOnSuccessListener {
+
+                        btnChangeState.text = "Completada"
+                        btnChangeState.setBackgroundResource(R.drawable.item_completed)
+                        textSuccess.text = "tasks completed today!"
+                        toast.duration = Toast.LENGTH_SHORT
+                        toast.view = layoutSucces
+                        toast.show()
+
+                    }
+                    .addOnFailureListener{
+
+                        textFail.text = "fail to complete the task"
+                        toast.duration = Toast.LENGTH_SHORT
+                        toast.view = layoutFail
+                        toast.show()
+
+                    }
+
+            }else {
+
+                hisotryRef.delete()
+                    .addOnSuccessListener {
+
+                        btnChangeState.text = "Pendiente"
+                        btnChangeState.setBackgroundResource(R.drawable.item_pending)
+                        textSuccess.text = "tasks mark pendind!"
+                        toast.duration = Toast.LENGTH_SHORT
+                        toast.view = layoutSucces
+                        toast.show()
+
+                    }
+                    .addOnFailureListener{
+
+                        textFail.text = "fail to update task"
+                        toast.duration = Toast.LENGTH_SHORT
+                        toast.view = layoutFail
+                        toast.show()
+
+                    }
+
+            }
+
             val newStatus = if (btnChangeState.text == "Completada") "Pendiente" else "Completada"
             
             taskViewModel.updateTaskStatus(homeId, taskId, newStatus) { success ->
@@ -130,7 +228,14 @@ class TaskDetailFragment : Fragment() {
 
         return view
     }
-    
+
+    private fun getTodayDateString(): String{
+
+        val sdf =  SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        return sdf.format(Date())
+
+    }
+
     private fun showEditPermissionsUI(
         view: View,
         miembros: ArrayList<String>,

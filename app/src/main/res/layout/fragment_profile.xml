@@ -5,106 +5,205 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    >
-    <TextView
-        android:id="@+id/textView"
+    android:background="#F5F5F5">
+
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="100dp"
-        android:paddingTop="26dp"
-        android:background="@color/purple"
-        android:gravity="center"
-        android:text="Profile"
-        android:textColor="@color/white"
-        android:textSize="25sp"
-        android:textStyle="bold"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <TextView
-        android:layout_gravity="center"
-        android:id="@+id/tv_namePofile"
-        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:text="Name:"
-        android:textSize="25dp"
-        android:textColor="@color/purple"
-        android:fontFamily="sans-serif-black"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/textView" />
+        android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/tv_completeName"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:textSize="20dp"
-        android:fontFamily="sans-serif-black"
-        android:textColor="@color/black"
-        android:text=""
-        app:layout_constraintStart_toEndOf="@+id/tv_namePofile"
-        tools:layout_editor_absoluteY="97dp" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/purple"
+            android:orientation="vertical"
+            android:paddingBottom="24dp">
 
-    <TextView
-        android:layout_gravity="center"
-        android:id="@+id/tv_email"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:text="E-mail:"
-        android:textSize="25dp"
-        android:textColor="@color/purple"
-        android:fontFamily="sans-serif-black"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/textView" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="16dp"
+                android:gravity="center"
+                android:text="Profile"
+                android:textColor="@color/white"
+                android:textSize="25sp"
+                android:textStyle="bold" />
 
-    <TextView
-        android:id="@+id/tv_realEmail"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:textSize="20dp"
-        android:fontFamily="sans-serif-black"
-        android:textColor="@color/black"
-        android:text=""
-        app:layout_constraintStart_toEndOf="@+id/tv_namePofile"
-        tools:layout_editor_absoluteY="97dp" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:gravity="center"
+                android:text="Profile Management"
+                android:textColor="@color/white"
+                android:textSize="15sp"
+                android:alpha="0.9" />
+        </LinearLayout>
 
-    <TextView
-        android:layout_gravity="center"
-        android:id="@+id/tv_numberTasks"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:text="Number of Completed Tasks:"
-        android:textSize="25dp"
-        android:textColor="@color/purple"
-        android:fontFamily="sans-serif-black"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/textView" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="-40dp"
+            android:layout_marginEnd="16dp"
+            android:background="@android:color/white"
+            android:elevation="4dp"
+            android:orientation="vertical"
+            android:padding="24dp">
 
-    <TextView
-        android:id="@+id/tv_numberCompletedTasks"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:textSize="40dp"
-        android:fontFamily="sans-serif-black"
-        android:textColor="@color/blue"
-        android:text=""
-        app:layout_constraintStart_toEndOf="@+id/tv_namePofile"
-        tools:layout_editor_absoluteY="97dp" />
+            <RelativeLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center">
 
-    <Button
-        android:id="@+id/btn_logout"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:layout_marginTop="48dp"
-        android:backgroundTint="@color/purple"
-        android:text="Logout"
-        android:textColor="@color/white"
-        android:textSize="18sp"
-        android:paddingHorizontal="32dp"
-        android:paddingVertical="12dp" />
+                <View
+                    android:id="@+id/view_avatar"
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
+                    android:background="@drawable/circle_profile"
+                    android:elevation="2dp" />
 
+                <ImageButton
+                    android:id="@+id/btn_editAvatar"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_alignEnd="@+id/view_avatar"
+                    android:layout_alignBottom="@+id/view_avatar"
+                    android:background="@drawable/circle_edit"
+                    android:contentDescription="Edit Avatar"
+                    android:layout_margin="2dp"
+                    android:elevation="4dp"
+                    android:padding="6dp"
+                    android:scaleType="fitCenter"
+                    android:src="@android:drawable/ic_menu_edit" />
+            </RelativeLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="16dp"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/tv_completeName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="User Name"
+                    android:textColor="@color/black"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+
+                <ImageButton
+                    android:id="@+id/btn_editName"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/circle_edit"
+                    android:contentDescription="Edit Name"
+                    android:padding="4dp"
+                    android:scaleType="fitCenter"
+                    android:src="@android:drawable/ic_menu_edit" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_realEmail"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="8dp"
+                android:fontFamily="sans-serif"
+                android:text="user@email.com"
+                android:textColor="#666666"
+                android:textSize="16sp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="24dp"
+                android:background="#E0E0E0" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:fontFamily="sans-serif-medium"
+                android:text="Completed Tasks (History)"
+                android:textColor="@color/purple"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/tv_numberCompletedTasks"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="8dp"
+                android:fontFamily="sans-serif-black"
+                android:text="0"
+                android:textColor="@color/blue"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="24dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Current Assignments"
+                        android:textStyle="bold"
+                        android:textColor="#444"
+                        android:textSize="14sp"/>
+
+                    <TextView
+                        android:id="@+id/tv_progressStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Cargando..."
+                        android:textColor="#666"
+                        android:textSize="12sp"/>
+                </LinearLayout>
+
+                <ProgressBar
+                    android:id="@+id/progressBar_assignments"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="12dp"
+                    android:layout_marginTop="8dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressTint="@color/purple"
+                    android:backgroundTint="#E0E0E0"/>
+
+            </LinearLayout>
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btn_logout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            android:background="@drawable/rounded_button_red"
+            android:elevation="2dp"
+            android:fontFamily="sans-serif-medium"
+            android:padding="16dp"
+            android:text="Cerrar Sesión"
+            android:textColor="@color/white"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 </LinearLayout>

@@ -11,6 +11,7 @@ data class Task(
     var nombre: String = "",
     var descripcio: String = "",
     var member: List<String> = emptyList(),
+    var assignedTo: List<String> = emptyList(),
     var date: List<String> = emptyList(),
     var stability: Int = 0,
     var completionDate: Long? = null,

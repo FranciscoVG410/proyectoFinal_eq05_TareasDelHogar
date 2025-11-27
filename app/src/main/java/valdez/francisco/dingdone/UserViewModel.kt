@@ -9,55 +9,62 @@ import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.Calendar
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.QuerySnapshot
 
 class UserViewModel : ViewModel() {
 
     private val db = FirebaseFirestore.getInstance()
 
-    // LiveData con las homes del usuario
     private val _userHomes = MutableLiveData<List<Home>>()
     val userHomes: LiveData<List<Home>> get() = _userHomes
 
-    // LiveData con mapa homeId → lista de tasks
     private val _homeTasks = MutableLiveData<Map<String, List<Task>>>()
     val homeTasks: LiveData<Map<String, List<Task>>> get() = _homeTasks
 
-    // LiveData para objeto unificado Home + Tasks
     private val _homesWithTasks = MutableLiveData<List<HomeWithTasks>>()
     val homesWithTasks: LiveData<List<HomeWithTasks>> get() = _homesWithTasks
 
-    // LiveData específico para los datos del gráfico de tareas completadas
     private val _completedTasksData = MutableLiveData<List<Task>>()
     val completedTasksData: LiveData<List<Task>> get() = _completedTasksData
 
-    // LiveData específico para los datos del gráfico de tareas NO completadas
     private val _unfinishedTasksData = MutableLiveData<List<Task>>()
     val unfinishedTasksData: LiveData<List<Task>> get() = _unfinishedTasksData
+
+    private val _userTaskProgress = MutableLiveData<UserProgres>()
+    val userTaskProgress: LiveData<UserProgres> get() = _userTaskProgress
 
     fun loadUserHomes(userId: String) {
         val db = FirebaseFirestore.getInstance()
 
-        db.collection("user_home")
-            .whereEqualTo("userId", userId)
+        db.collection("users")
+            .document(userId)
             .get()
-            .addOnSuccessListener { relSnap ->
-                val homeIds = relSnap.documents.mapNotNull { it.getString("homeId") }
-                if (homeIds.isEmpty()) {
-                    _userHomes.postValue(emptyList())
-                    return@addOnSuccessListener
-                }
+            .addOnSuccessListener { document ->
+                if(document.exists()){
 
-                // Firestore whereIn tiene limite de 10 por query; manejalo si hay muchos ids
-                db.collection("homes")
-                    .whereIn(FieldPath.documentId(), homeIds)
-                    .get()
-                    .addOnSuccessListener { homesSnap ->
-                        val homes = homesSnap.toObjects(Home::class.java)
-                        _userHomes.postValue(homes)
+                    val homeIds = document.get("homes") as? List<String> ?: emptyList()
+                    if (homeIds.isEmpty()) {
+                        _userHomes.postValue(emptyList())
+                        return@addOnSuccessListener
                     }
-                    .addOnFailureListener { e ->
-                        Log.w("loadUserHomes", "Error fetching homes: $e")
-                    }
+
+                    db.collection("homes")
+                        .whereIn(FieldPath.documentId(), homeIds)
+                        .get()
+                        .addOnSuccessListener { homesSnap ->
+                            val homes = homesSnap.toObjects(Home::class.java)
+                            _userHomes.postValue(homes)
+                        }
+                        .addOnFailureListener { e ->
+                            Log.w("loadUserHomes", "Error fetching homes: $e")
+                        }
+
+                }else{
+
+                    Log.w("loadUserHomes", "User document does not exists")
+                    _userHomes.postValue(emptyList())
+
+                }
             }
             .addOnFailureListener { e ->
                 Log.w("loadUserHomes", "Error fetching user_home: $e")
@@ -128,8 +135,8 @@ class UserViewModel : ViewModel() {
             .document(homeId)
             .collection("tasks")
             .whereEqualTo("state", "Completada")
-            .whereGreaterThanOrEqualTo("completionDate", startTime) // Filtrar por la fecha de completado
-            .orderBy("completionDate", com.google.firebase.firestore.Query.Direction.DESCENDING) // Ordenar para optimizar el índice
+            .whereGreaterThanOrEqualTo("completionDate", startTime)
+            .orderBy("completionDate", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .get()
             .addOnSuccessListener { snapshot ->
                 val completedTasks = snapshot.toObjects(Task::class.java)
@@ -184,5 +191,63 @@ class UserViewModel : ViewModel() {
             }
         }
         return calendar.timeInMillis
+    }
+
+    fun loadUserAssignedTasksProgress(userId: String) {
+        val db = FirebaseFirestore.getInstance()
+
+        db.collection("users").document(userId).get()
+            .addOnSuccessListener { document ->
+                val homeIds = document.get("homes") as? List<String> ?: emptyList()
+
+                if (homeIds.isEmpty()) {
+
+                    _userTaskProgress.postValue(UserProgres())
+                    return@addOnSuccessListener
+
+                }
+
+                val queryTasks = homeIds.map { homeId ->
+                    db.collection("homes")
+                        .document(homeId)
+                        .collection("tasks")
+                        .whereArrayContains("assignedTo", userId)
+                        .get()
+                }
+
+                com.google.android.gms.tasks.Tasks.whenAllSuccess<QuerySnapshot>(queryTasks)
+                    .addOnSuccessListener { listOfSnapshots ->
+
+                        val allAssignedTasks = mutableListOf<Task>()
+
+                        listOfSnapshots.forEach { snapshot ->
+                            val tasks = snapshot.toObjects(Task::class.java)
+                            allAssignedTasks.addAll(tasks)
+                        }
+
+                        val completed = allAssignedTasks.count { it.state == "Completada" }
+                        val total = allAssignedTasks.size
+                        val pending = total - completed
+
+                        val percentage = if (total > 0) (completed * 100) / total else 0
+
+                        val progressData = UserProgres(
+                            totalTasks = total,
+                            completedTasks = completed,
+                            pendingTasks = pending,
+                            progressPercentage = percentage,
+                            allTasks = allAssignedTasks
+                        )
+
+                        _userTaskProgress.postValue(progressData)
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("UserViewModel", "Error cargando tareas asignadas globales: $e")
+                        _userTaskProgress.postValue(UserProgres())
+                    }
+            }
+            .addOnFailureListener { e ->
+                Log.w("UserViewModel", "Error obteniendo usuario para progreso: $e")
+            }
     }
 }

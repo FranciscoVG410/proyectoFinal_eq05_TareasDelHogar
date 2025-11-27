@@ -14,32 +14,32 @@
         android:orientation="vertical">
 
         <TextView
-            android:id="@+id/tvConfig"
             android:layout_width="match_parent"
-            android:paddingTop="26dp"
-            android:layout_height="100dp"
+            android:layout_height="65dp"
+            android:paddingTop="16dp"
             android:background="@color/purple"
             android:gravity="center"
-            android:text="CONFIGURATION"
+            android:text="Configuration"
             android:textColor="@color/white"
-            android:textSize="25sp" />
+            android:textSize="25sp"
+            android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/tvHome"
             android:layout_width="match_parent"
             android:layout_height="50dp"
             android:background="@color/purple"
             android:gravity="center_horizontal"
-            android:text="Home"
+            android:text="Home Management"
             android:textColor="@color/white"
-            android:textSize="15sp" />
+            android:textSize="15sp"
+            android:textStyle="bold" />
 
         <android.widget.Button
             android:id="@+id/btnCreateHome"
             android:layout_width="300dp"
             android:layout_height="40dp"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="30dp"
+            android:layout_marginTop="40dp"
             android:background="@drawable/fondobtn"
             android:text="CREATE HOME"
             android:textColor="@color/white" />

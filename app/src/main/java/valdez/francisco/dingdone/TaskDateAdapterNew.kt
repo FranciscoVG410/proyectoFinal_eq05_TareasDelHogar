@@ -65,7 +65,7 @@ class TaskDateAdapterNew(
             status.text = item.task.state
             if(item.task.state == "Completada"){
                 status.setBackgroundResource(R.drawable.item_completed)
-            }else if (item.task.state == "Pendiente"){
+            }else{
                 status.setBackgroundResource(R.drawable.item_pending)
             }
             chgMembers.removeAllViews()

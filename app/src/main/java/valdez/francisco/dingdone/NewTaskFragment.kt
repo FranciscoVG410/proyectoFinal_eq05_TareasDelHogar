@@ -28,6 +28,7 @@ class NewTaskFragment : Fragment() {
     private val selectedDays = mutableSetOf<String>()
     private val taskViewModel: TaskViewModel by viewModels()
     private val homeViewModel: HomeShareViewModel by activityViewModels()
+    private val memberMap = mutableMapOf<String, String>()
     private val houseMemberNames = mutableListOf<String>()
     private var isSpinnerInitialized = false
 
@@ -42,43 +43,39 @@ class NewTaskFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_new_task, container, false)
 
 
-        val homes = listOf<Home>() // tu lista real
+        val homes = listOf<Home>()
 
         taskName = view.findViewById(R.id.taskName)
         taskDesc = view.findViewById(R.id.taskDesc)
         saveButton = view.findViewById(R.id.saveButton)
         memberSpinner = view.findViewById(R.id.memberSpinner)
         chipsContainer = view.findViewById(R.id.chipsContainer)
-        
-        // Back button in header
+
         val backButtonHeader: ImageButton = view.findViewById(R.id.backButtonHeader)
         backButtonHeader.setOnClickListener {
             parentFragmentManager.popBackStack()
         }
 
-        // Days buttons
         val daysContainer = view.findViewById<GridLayout>(R.id.daysContainer)
         dayButtons = (0 until daysContainer.childCount).map { daysContainer.getChildAt(it) as Button }
 
-        // Load house members dynamically
         loadHouseMembers()
 
-        // Handle day selection - allow multiple selection
         dayButtons.forEach { button ->
             Log.d("Dias", button.text.toString())
-            button.tag = "unselected" // Initialize tag
+            button.tag = "unselected"
 
             button.setOnClickListener {
                 val day = button.text.toString()
                 
                 if (button.tag == "selected") {
-                    // Deselect
+
                     button.setBackgroundResource(R.drawable.button_outline)
                     button.setTextColor(ContextCompat.getColor(requireContext(), R.color.purple))
                     button.tag = "unselected"
                     selectedDays.remove(date(day))
                 } else {
-                    // Select
+
                     button.setBackgroundResource(R.drawable.button_enabled)
                     button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
                     button.tag = "selected"
@@ -105,7 +102,6 @@ class NewTaskFragment : Fragment() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
-        // Validation listeners
         taskName.setOnFocusChangeListener { _, _ -> checkFormState() }
         taskDesc.setOnFocusChangeListener { _, _ -> checkFormState() }
 
@@ -136,9 +132,6 @@ class NewTaskFragment : Fragment() {
                 }
         }
 
-
-
-        // Bottom back button
         val backButton: Button = view.findViewById(R.id.backButton)
         backButton.setOnClickListener {
             parentFragmentManager.popBackStack()
@@ -185,6 +178,7 @@ class NewTaskFragment : Fragment() {
                             .addOnSuccessListener { userDoc ->
                                 if (userDoc != null && userDoc.exists()) {
                                     val userName = userDoc.getString("name") ?: "Unknown"
+                                    memberMap[userName] = userId
                                     houseMemberNames.add(userName)
                                 }
                                 
@@ -228,6 +222,8 @@ class NewTaskFragment : Fragment() {
     private fun addChip(name: String) {
 
         if (userList.any { it.nombre == name }) return
+
+        val userId = memberMap[name] ?: return
         val chip = TextView(requireContext()).apply {
             text = "$name ✕"
             setPadding(24, 8, 24, 8)
@@ -243,7 +239,7 @@ class NewTaskFragment : Fragment() {
             layoutParams = params
         }
         chipsContainer.addView(chip)
-        userList.add(UserData(name))
+        userList.add(UserData(userId, name))
         checkFormState()
     }
 
@@ -292,6 +288,7 @@ class NewTaskFragment : Fragment() {
             nombre = taskName.text.toString(),
             descripcio = taskDesc.text.toString(),
             member = userList.map { it.nombre },
+            assignedTo = userList.map { it.id },
             date = selectedDays.toList(),
             state = "Pendiente",
             editableBy = emptyList()

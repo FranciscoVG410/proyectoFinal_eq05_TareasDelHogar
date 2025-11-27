@@ -12,13 +12,25 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 
+
+
 class HomeCreatedFragment : Fragment() {
+
+    private lateinit var layoutSuccess: View
+    private lateinit var textSuccess: TextView
+    private lateinit var toast: Toast
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.activity_home_created, container, false)
+
+        val inflate = layoutInflater
+        layoutSuccess = inflate.inflate(R.layout.custome_toast_success, null)
+        textSuccess = layoutSuccess.findViewById(R.id.txtTextToastS)
+        toast = Toast(context)
 
         val btnGoHome: Button = view.findViewById(R.id.btnGoHome)
         val tvInvitationCode: TextView = view.findViewById(R.id.tv_codeCreated)
@@ -34,7 +46,11 @@ class HomeCreatedFragment : Fragment() {
 
             clipboard.setPrimaryClip(clip)
 
-            Toast.makeText(requireContext(), "Invitation code copied!", Toast.LENGTH_SHORT).show()
+            textSuccess.text = "Invitation code copied!"
+            toast.duration = Toast.LENGTH_SHORT
+            toast.view = layoutSuccess
+            toast.show()
+
         }
 
         btnGoHome.setOnClickListener {
