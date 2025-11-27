@@ -7,7 +7,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.fragment.app.viewModels
 import com.google.firebase.auth.FirebaseAuth
@@ -43,6 +42,17 @@ class ProfileFragment : Fragment() {
 
         setupObservers()
         loadUserData()
+        setupLogoutButton()
+        return view
+    }
+
+    private fun setupLogoutButton() {
+        btnLogout.setOnClickListener {
+            auth.signOut()
+            val intent = Intent(requireContext(), LoginActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+        }
 
         btnLogout.setOnClickListener{
 
