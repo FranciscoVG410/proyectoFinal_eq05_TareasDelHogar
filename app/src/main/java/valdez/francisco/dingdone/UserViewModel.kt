@@ -33,6 +33,9 @@ class UserViewModel : ViewModel() {
     private val _userTaskProgress = MutableLiveData<UserProgres>()
     val userTaskProgress: LiveData<UserProgres> get() = _userTaskProgress
 
+    private val _userTasksGroupedByHome = MutableLiveData<List<Pair<Home, List<Task>>>>()
+    val userTasksGroupedByHome: LiveData<List<Pair<Home, List<Task>>>> get() = _userTasksGroupedByHome
+
     fun loadUserHomes(userId: String) {
         val db = FirebaseFirestore.getInstance()
 
@@ -248,6 +251,67 @@ class UserViewModel : ViewModel() {
             }
             .addOnFailureListener { e ->
                 Log.w("UserViewModel", "Error obteniendo usuario para progreso: $e")
+            }
+    }
+
+    fun loadUserTasksGroupedByHome(userId: String) {
+        db.collection("users").document(userId).get()
+            .addOnSuccessListener { document ->
+                val homeIds = document.get("homes") as? List<String> ?: emptyList()
+
+                if (homeIds.isEmpty()) {
+                    _userTasksGroupedByHome.postValue(emptyList())
+                    return@addOnSuccessListener
+                }
+
+                db.collection("homes")
+                    .whereIn(FieldPath.documentId(), homeIds)
+                    .get()
+                    .addOnSuccessListener { homesSnapshot ->
+                        val homes = homesSnapshot.toObjects(Home::class.java)
+
+                        if (homes.isEmpty()) {
+                            _userTasksGroupedByHome.postValue(emptyList())
+                            return@addOnSuccessListener
+                        }
+
+                        val resultList = mutableListOf<Pair<Home, List<Task>>>()
+                        var completedHomes = 0
+
+                        homes.forEach { home ->
+                            db.collection("homes")
+                                .document(home.id)
+                                .collection("tasks")
+                                .whereArrayContains("assignedTo", userId)
+                                .get()
+                                .addOnSuccessListener { tasksSnapshot ->
+                                    val tasks = tasksSnapshot.toObjects(Task::class.java)
+                                    resultList.add(Pair(home, tasks))
+                                    completedHomes++
+
+                                    if (completedHomes == homes.size) {
+                                        _userTasksGroupedByHome.postValue(resultList)
+                                    }
+                                }
+                                .addOnFailureListener { e ->
+                                    Log.e("UserViewModel", "Error cargando tareas para home ${home.id}: $e")
+                                    resultList.add(Pair(home, emptyList()))
+                                    completedHomes++
+
+                                    if (completedHomes == homes.size) {
+                                        _userTasksGroupedByHome.postValue(resultList)
+                                    }
+                                }
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("UserViewModel", "Error cargando homes: $e")
+                        _userTasksGroupedByHome.postValue(emptyList())
+                    }
+            }
+            .addOnFailureListener { e ->
+                Log.w("UserViewModel", "Error obteniendo usuario: $e")
+                _userTasksGroupedByHome.postValue(emptyList())
             }
     }
 }

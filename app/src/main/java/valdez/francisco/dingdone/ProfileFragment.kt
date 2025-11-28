@@ -19,8 +19,11 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.viewModels
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import android.widget.ImageView
 
 
 class ProfileFragment : Fragment() {
@@ -34,6 +37,13 @@ class ProfileFragment : Fragment() {
 
     private lateinit var llHousesSection: LinearLayout
     private lateinit var llHousesContainer: LinearLayout
+
+    private lateinit var llTasksSection: LinearLayout
+    private lateinit var llTasksHeader: LinearLayout
+    private lateinit var ivTasksExpand: ImageView
+    private lateinit var rvUserTasks: RecyclerView
+    private lateinit var tasksAdapter: TaskDateAdapterNew
+    private var isTasksExpanded = true
 
     private lateinit var layoutSuccess: View
     private lateinit var textSuccess: TextView
@@ -60,12 +70,22 @@ class ProfileFragment : Fragment() {
         llHousesSection = view.findViewById(R.id.ll_housesSection)
         llHousesContainer = view.findViewById(R.id.ll_housesContainer)
 
+        llTasksSection = view.findViewById(R.id.ll_tasksSection)
+        llTasksHeader = view.findViewById(R.id.ll_tasksHeader)
+        ivTasksExpand = view.findViewById(R.id.iv_tasksExpand)
+        rvUserTasks = view.findViewById(R.id.rv_userTasks)
+
+        rvUserTasks.layoutManager = LinearLayoutManager(requireContext())
+        tasksAdapter = TaskDateAdapterNew(emptyList(), "")
+        rvUserTasks.adapter = tasksAdapter
+
         val inflate = layoutInflater
         layoutSuccess = inflate.inflate(R.layout.custome_toast_success, null)
         textSuccess = layoutSuccess.findViewById(R.id.txtTextToastS)
         toast = Toast(context)
 
         setupObservers()
+        setupTasksCollapse()
         loadUserData()
         setupLogoutButton()
         return view
@@ -110,6 +130,23 @@ class ProfileFragment : Fragment() {
 
             }
 
+            uvm.userTasksGroupedByHome.observe(viewLifecycleOwner) { homeTasksPairs ->
+                displayUserTasksByHome(homeTasksPairs)
+            }
+
+    }
+
+    private fun setupTasksCollapse() {
+        llTasksHeader.setOnClickListener {
+            isTasksExpanded = !isTasksExpanded
+            if (isTasksExpanded) {
+                rvUserTasks.visibility = View.VISIBLE
+                ivTasksExpand.setImageResource(android.R.drawable.arrow_up_float)
+            } else {
+                rvUserTasks.visibility = View.GONE
+                ivTasksExpand.setImageResource(android.R.drawable.arrow_down_float)
+            }
+        }
     }
 
     private fun loadUserData() {
@@ -133,9 +170,48 @@ class ProfileFragment : Fragment() {
                     tvCompleteName.text = "Error"
                 }
             uvm.loadUserAssignedTasksProgress(uid)
+            uvm.loadUserTasksGroupedByHome(uid)
             loadCreatedHomes(uid)
         } else {
 
+        }
+    }
+
+    private fun displayUserTasksByHome(homeTasksPairs: List<Pair<Home, List<Task>>>) {
+        val items = mutableListOf<TaskListItem>()
+        val weekDays = listOf("Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo")
+
+        var hasAnyTasks = false
+
+        homeTasksPairs.forEach { (home, tasks) ->
+            val pendingTasks = tasks.filter { it.state != "Completada" }
+
+            if (pendingTasks.isNotEmpty()) {
+                hasAnyTasks = true
+                items.add(TaskListItem.HomeHeader(home.name))
+
+                val groupedByDay = mutableMapOf<String, MutableList<Task>>()
+                pendingTasks.forEach { task ->
+                    task.date.forEach { day ->
+                        groupedByDay.getOrPut(day) { mutableListOf() }.add(task)
+                    }
+                }
+
+                weekDays.forEach { day ->
+                    val dayTasks = groupedByDay[day]
+                    if (!dayTasks.isNullOrEmpty()) {
+                        items.add(TaskListItem.Header(day))
+                        items.addAll(dayTasks.map { TaskListItem.TaskItem(it, home.id) })
+                    }
+                }
+            }
+        }
+
+        if (hasAnyTasks) {
+            llTasksSection.visibility = View.VISIBLE
+            tasksAdapter.updateItem(items)
+        } else {
+            llTasksSection.visibility = View.GONE
         }
     }
 

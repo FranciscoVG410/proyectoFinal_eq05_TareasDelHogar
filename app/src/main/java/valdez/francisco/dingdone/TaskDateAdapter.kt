@@ -33,6 +33,7 @@ class TaskDateAdapter(private var items: List<TaskListItem>) : RecyclerView.Adap
         return when (items[position]) {
             is TaskListItem.Header -> TYPE_HEADER
             is TaskListItem.TaskItem -> TYPE_TASK
+            is TaskListItem.HomeHeader -> TODO()
         }
     }
 
@@ -124,6 +125,7 @@ class TaskDateAdapter(private var items: List<TaskListItem>) : RecyclerView.Adap
         when (val item = items[position]) {
             is TaskListItem.Header -> (holder as HeaderViewHolder).bind(item)
             is TaskListItem.TaskItem -> (holder as TaskViewHolder).bind(item)
+            is TaskListItem.HomeHeader -> TODO()
         }
 
     }
