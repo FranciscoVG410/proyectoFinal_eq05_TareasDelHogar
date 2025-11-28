@@ -126,27 +126,22 @@ class UserViewModel : ViewModel() {
         }
     }
 
-    fun loadCompletedTasksForHome(homeId: String, period: PeriodType) {
-        if (homeId.isEmpty()) {
-            _completedTasksData.postValue(emptyList())
-            return
-        }
-
-        val startTime = getStartTime(System.currentTimeMillis(), period)
-
+    fun loadCompletedTasksForHome(homeId: String) {
         db.collection("homes")
             .document(homeId)
             .collection("tasks")
             .whereEqualTo("state", "Completada")
-            .whereGreaterThanOrEqualTo("completionDate", startTime)
-            .orderBy("completionDate", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .get()
-            .addOnSuccessListener { snapshot ->
-                val completedTasks = snapshot.toObjects(Task::class.java)
-                _completedTasksData.postValue(completedTasks)
+            .addOnSuccessListener { snapshots ->
+                val tasks = snapshots.documents.mapNotNull { doc ->
+                    val task = doc.toObject(Task::class.java)
+                    task?.id = doc.id
+                    task
+                }
+                _completedTasksData.postValue(tasks)
             }
-            .addOnFailureListener { e ->
-                Log.w("UserViewModel", "Error fetching completed tasks for $homeId: $e")
+            .addOnFailureListener { exception ->
+                Log.e("UserViewModel", "Error loading completed tasks: $exception")
                 _completedTasksData.postValue(emptyList())
             }
     }

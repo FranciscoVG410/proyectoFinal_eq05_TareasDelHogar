@@ -114,7 +114,7 @@ class GraphsFragment : Fragment() {
 
         when (currentDataType) {
             GraphDataType.COMPLETED -> {
-                userViewModel.loadCompletedTasksForHome(homeId, currentPeriod)
+                userViewModel.loadCompletedTasksForHome(homeId)
             }
             GraphDataType.UNFINISHED -> {
                 userViewModel.loadUnfinishedTasksForHome(homeId)
