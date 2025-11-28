@@ -70,14 +70,26 @@ class TasksFragmentNew : Fragment() {
                 buttonsContainer.visibility = View.VISIBLE
                 homes.forEach { home ->
 
+                    val displayName = if (home.name.length > 20) {
+                        val start = home.name.substring(0, 8)
+                        val end = home.name.substring(home.name.length - 8)
+                        "$start...$end"
+                    } else {
+                        home.name
+                    }
+
                     val button = Button(requireContext()).apply {
-                        text = home.name
+                        text = displayName
+                        tag = home.name
                         layoutParams = LinearLayout.LayoutParams(
-                            190,
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
                             LinearLayout.LayoutParams.WRAP_CONTENT
                         ).apply {
                             setMargins(12, 0, 12, 0)
                         }
+                        minWidth = 150
+                        maxWidth = 280
+                        setPadding(24, 12, 24, 12)
                         background = ContextCompat.getDrawable(
                             requireContext(),
                             R.drawable.rounded_button_purple
@@ -105,8 +117,22 @@ class TasksFragmentNew : Fragment() {
                 }
             }else if(homes.size == 1) {
 
-                buttonsContainer.visibility = View.GONE
+                buttonsContainer.visibility = View.VISIBLE
                 val uniqueHome = homes.first()
+
+                val titleView = TextView(requireContext()).apply {
+                    text = uniqueHome.name
+                    textSize = 36f
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.purple))
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                    gravity = android.view.Gravity.CENTER
+                    setTypeface(typeface, android.graphics.Typeface.BOLD)
+                }
+
+                buttonsContainer.addView(titleView)
 
                 homeViewModel.selectHome(uniqueHome.id)
                 uvm.loadTasksForHome(uniqueHome.id)
@@ -164,13 +190,26 @@ class TasksFragmentNew : Fragment() {
     private fun updateButtonStyles(selectedButton: Button) {
         for (i in 0 until buttonsContainer.childCount) {
             val button = buttonsContainer.getChildAt(i) as Button
+            val fullName = button.tag as? String ?: button.text.toString()
+            
             if (button == selectedButton) {
+                button.text = fullName
+                button.maxWidth = 600
                 button.background = ContextCompat.getDrawable(
                     requireContext(),
                     R.drawable.fondobtn
                 )
                 button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
             } else {
+                val displayName = if (fullName.length > 20) {
+                    val start = fullName.substring(0, 8)
+                    val end = fullName.substring(fullName.length - 8)
+                    "$start...$end"
+                } else {
+                    fullName
+                }
+                button.text = displayName
+                button.maxWidth = 280
                 button.background = ContextCompat.getDrawable(
                     requireContext(),
                     R.drawable.contorno
