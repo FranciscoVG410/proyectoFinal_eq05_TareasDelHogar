@@ -58,9 +58,7 @@ class GraphsFragment : Fragment() {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 currentPeriod = PeriodType.valueOf(periodOptions[position])
                 Log.d("GraphsFragment", "Period Selected: $currentPeriod")
-                if (currentDataType == GraphDataType.COMPLETED) {
-                    loadDataForCurrentHome()
-                }
+                loadDataForCurrentHome()
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {}
@@ -95,6 +93,10 @@ class GraphsFragment : Fragment() {
                 updatePieChartData(unfinishedTasks)
             }
         }
+
+        userViewModel.userNamesMap.observe(viewLifecycleOwner) {
+            loadDataForCurrentHome()
+        }
     }
 
     private fun setupSelectedHomeObserver() {
@@ -102,6 +104,7 @@ class GraphsFragment : Fragment() {
             if (!homeId.isNullOrEmpty()) {
                 Log.d("GraphsFragment", "Loading tasks: $homeId")
                 loadDataForCurrentHome()
+                userViewModel.loadUserNamesForHome(homeId)
             } else {
                 Log.w("GraphsFragment", "Home ID invalid")
                 customPieView.background = null
@@ -114,10 +117,10 @@ class GraphsFragment : Fragment() {
 
         when (currentDataType) {
             GraphDataType.COMPLETED -> {
-                userViewModel.loadCompletedTasksForHome(homeId)
+                userViewModel.loadCompletedTasksForHome(homeId, currentPeriod)
             }
             GraphDataType.UNFINISHED -> {
-                userViewModel.loadUnfinishedTasksForHome(homeId)
+                userViewModel.loadUnfinishedTasksForHome(homeId, currentPeriod)
             }
         }
     }
@@ -159,6 +162,6 @@ class GraphsFragment : Fragment() {
     }
 
     private fun resolveUserName(userId: String): String {
-        return userId
+        return userViewModel.userNamesMap.value?.get(userId) ?: "Usuario Desconocido"
     }
 }

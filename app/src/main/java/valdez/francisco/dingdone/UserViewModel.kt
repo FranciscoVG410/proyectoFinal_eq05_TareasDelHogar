@@ -236,46 +236,108 @@ class UserViewModel : ViewModel() {
         }
     }
 
-    fun loadCompletedTasksForHome(homeId: String) {
-        db.collection("homes")
-            .document(homeId)
-            .collection("tasks")
-            .whereEqualTo("state", "Completada")
-            .get()
-            .addOnSuccessListener { snapshots ->
-                val tasks = snapshots.documents.mapNotNull { doc ->
-                    val task = doc.toObject(Task::class.java)
-                    task?.id = doc.id
-                    task
+    fun loadCompletedTasksForHome(homeId: String, period: PeriodType) {
+        if (homeId.isEmpty()) {
+            _completedTasksData.postValue(emptyList())
+            return
+        }
+
+        val startTime = getStartTime(System.currentTimeMillis(), period)
+
+        loadHomeMembers(homeId) { membersMap ->
+            db.collection("homes")
+                .document(homeId)
+                .collection("tasks")
+                .whereEqualTo("state", "Completada")
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    val completedTasks = snapshot.documents.mapNotNull { doc ->
+                        val task = doc.toObject(Task::class.java)?.apply { id = doc.id }
+                        if (task?.completionDate != null && task.completionDate!! >= startTime) task else null
+                    }
+
+                    completedTasks.forEach { task ->
+                        task.member = task.member.map { memberId -> membersMap[memberId] ?: "USUARIO DESCONOCIDO" }
+                    }
+
+                    _completedTasksData.postValue(completedTasks)
                 }
-                _completedTasksData.postValue(tasks)
-            }
-            .addOnFailureListener { exception ->
-                Log.e("UserViewModel", "Error loading completed tasks: $exception")
-                _completedTasksData.postValue(emptyList())
-            }
+                .addOnFailureListener { e ->
+                    Log.e("UserViewModel", "Error cargando completadas $homeId: $e")
+                    _completedTasksData.postValue(emptyList())
+                }
+        }
     }
 
-    fun loadUnfinishedTasksForHome(homeId: String) {
+    fun loadUnfinishedTasksForHome(homeId: String, period: PeriodType) {
         if (homeId.isEmpty()) {
             _unfinishedTasksData.postValue(emptyList())
             return
         }
 
-        db.collection("homes")
-            .document(homeId)
-            .collection("tasks")
-            .whereEqualTo("state", "Pendiente")
-            .get()
-            .addOnSuccessListener { snapshot ->
-                val unfinishedTasks = snapshot.toObjects(Task::class.java)
-                _unfinishedTasksData.postValue(unfinishedTasks)
+        val startTime = getStartTime(System.currentTimeMillis(), period)
+
+        loadHomeMembers(homeId) { membersMap ->
+            db.collection("homes")
+                .document(homeId)
+                .collection("tasks")
+                .whereEqualTo("state", "Pendiente")
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    val unfinishedTasks = snapshot.documents.mapNotNull { doc ->
+                        doc.toObject(Task::class.java)?.apply { id = doc.id }
+                    }
+
+                    unfinishedTasks.forEach { task ->
+                        task.member = task.member.map { memberId -> membersMap[memberId] ?: "USUARIO DESCONOCIDO" }
+                    }
+
+                    _unfinishedTasksData.postValue(unfinishedTasks)
+                }
+                .addOnFailureListener { e ->
+                    Log.e("UserViewModel", "Error cargando pendientes $homeId: $e")
+                    _unfinishedTasksData.postValue(emptyList())
+                }
+        }
+    }
+
+    fun loadHomeMembers(homeId: String, callback: (Map<String, String>) -> Unit) {
+        db.collection("homes").document(homeId).get()
+            .addOnSuccessListener { document ->
+                val memberIds = document.get("memberIds") as? List<String> ?: emptyList()
+
+                if (memberIds.isEmpty()) {
+                    _homeMembers.postValue(emptyList())
+                    callback(emptyMap())
+                    return@addOnSuccessListener
+                }
+
+                db.collection("users")
+                    .whereIn(FieldPath.documentId(), memberIds)
+                    .get()
+                    .addOnSuccessListener { usersSnapshot ->
+                        val members = usersSnapshot.documents.mapNotNull { doc ->
+                            doc.toObject(User::class.java)?.apply { id = doc.id }
+                        }
+                        _homeMembers.postValue(members)
+
+                        val membersMap = members.associate { it.id to it.name }
+                        _userNamesMap.postValue(membersMap)
+                        callback(membersMap)
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("UserViewModel", "Error cargando miembros de la casa $homeId: $e")
+                        _homeMembers.postValue(emptyList())
+                        callback(emptyMap())
+                    }
             }
             .addOnFailureListener { e ->
-                Log.w("UserViewModel", "Error fetching unfinished tasks for $homeId: $e")
-                _unfinishedTasksData.postValue(emptyList())
+                Log.e("UserViewModel", "Error obteniendo Home para miembros $homeId: $e")
+                _homeMembers.postValue(emptyList())
+                callback(emptyMap())
             }
     }
+
 
     private fun getStartTime(currentTime: Long, period: PeriodType): Long {
         val calendar = Calendar.getInstance().apply {
