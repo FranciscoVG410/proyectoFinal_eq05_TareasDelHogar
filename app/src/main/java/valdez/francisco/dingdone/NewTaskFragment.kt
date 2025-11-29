@@ -110,6 +110,7 @@ class NewTaskFragment : Fragment() {
     private fun enableSaveButton() {
         saveButton.isEnabled = true
         saveButton.alpha = 1f
+        saveButton.setBackgroundResource(R.drawable.button_enabled)
     }
 
     private fun loadTaskData(id: String) {

@@ -12,6 +12,7 @@ import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
@@ -78,19 +79,6 @@ class TaskDetailFragment : Fragment() {
         val currentUserId = auth.currentUser?.uid
         if (currentUserId != null) {
 
-            db.collection("homes").document(homeId)
-                .collection("tasks").document(taskId)
-                .collection("history").document(todayDate)
-                .get().addOnSuccessListener { document ->
-                    if (document.exists()) {
-                        btnChangeState.text = "Completada"
-                        btnChangeState.setBackgroundResource(R.drawable.item_completed)
-                    } else {
-                        btnChangeState.text = "Pendiente"
-                        btnChangeState.setBackgroundResource(R.drawable.item_pending)
-                    }
-                }
-
             db.collection("users").document(currentUserId)
                 .get()
                 .addOnSuccessListener { userDoc ->
@@ -117,7 +105,6 @@ class TaskDetailFragment : Fragment() {
         }
 
         btnEditTask.setOnClickListener {
-
             val frag = NewTaskFragment()
             val args = Bundle()
 
@@ -132,7 +119,6 @@ class TaskDetailFragment : Fragment() {
 
             frag.arguments = args
 
-            parentFragmentManager.beginTransaction()
             parentFragmentManager.beginTransaction()
                 .replace(R.id.fragment_container, frag)
                 .addToBackStack(null)
@@ -149,27 +135,60 @@ class TaskDetailFragment : Fragment() {
                 .collection("tasks").document(taskId)
                 .collection("history").document(todayDate)
 
+            val taskRef = db.collection("homes").document(homeId)
+                .collection("tasks").document(taskId)
+
             val currentState = btnChangeState.text.toString()
 
             if (currentState == "Pendiente") {
+                val completionTime = System.currentTimeMillis()
+
                 val data = hashMapOf(
                     "completedBy" to currentUserId,
-                    "completedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp(),
+                    "completedAt" to Timestamp.now(),
                     "status" to "Completada"
                 )
 
                 historyRef.set(data)
                     .addOnSuccessListener {
-                        btnChangeState.text = "Completada"
-                        btnChangeState.setBackgroundResource(R.drawable.item_completed)
+                        val updates = hashMapOf<String, Any>(
+                            "state" to "Completada",
+                            "completionDate" to completionTime
+                        )
+
+                        taskRef.update(updates)
+                            .addOnSuccessListener {
+                                btnChangeState.text = "Completada"
+                                btnChangeState.setBackgroundResource(R.drawable.item_completed)
+                                Toast.makeText(requireContext(), "Tarea completada", Toast.LENGTH_SHORT).show()
+                            }
+                            .addOnFailureListener { e ->
+                                Toast.makeText(requireContext(), "Error actualizando estado: $e", Toast.LENGTH_SHORT).show()
+                            }
+                    }
+                    .addOnFailureListener { e ->
+                        Toast.makeText(requireContext(), "Error registrando historial: $e", Toast.LENGTH_SHORT).show()
                     }
 
             } else {
-
                 historyRef.delete()
                     .addOnSuccessListener {
-                        btnChangeState.text = "Pendiente"
-                        btnChangeState.setBackgroundResource(R.drawable.item_pending)
+                        val updates = hashMapOf<String, Any?>(
+                            "state" to "Pendiente",
+                            "completionDate" to null
+                        )
+                        taskRef.update(updates)
+                            .addOnSuccessListener {
+                                btnChangeState.text = "Pendiente"
+                                btnChangeState.setBackgroundResource(R.drawable.item_pending)
+                                Toast.makeText(requireContext(), "Tarea pendiente", Toast.LENGTH_SHORT).show()
+                            }
+                            .addOnFailureListener { e ->
+                                Toast.makeText(requireContext(), "Error actualizando estado: $e", Toast.LENGTH_SHORT).show()
+                            }
+                    }
+                    .addOnFailureListener { e ->
+                        Toast.makeText(requireContext(), "Error borrando historial: $e", Toast.LENGTH_SHORT).show()
                     }
             }
         }
@@ -179,7 +198,6 @@ class TaskDetailFragment : Fragment() {
         }
 
         chgMiembros.removeAllViews()
-
         miembros.forEach { member ->
             val chipContext = ContextThemeWrapper(
                 chgMiembros.context,
@@ -227,7 +245,6 @@ class TaskDetailFragment : Fragment() {
         permissionsSection.addView(title)
 
         val checkboxes = mutableListOf<Pair<CheckBox, String>>()
-
         miembros.forEach { member ->
             val chk = CheckBox(requireContext()).apply {
                 text = member
