@@ -36,6 +36,116 @@ class UserViewModel : ViewModel() {
     private val _userTasksGroupedByHome = MutableLiveData<List<Pair<Home, List<Task>>>>()
     val userTasksGroupedByHome: LiveData<List<Pair<Home, List<Task>>>> get() = _userTasksGroupedByHome
 
+    private val _homeMembers = MutableLiveData<List<User>>()
+    val homeMembers: LiveData<List<User>> get() = _homeMembers
+
+    private val _currentHomeTasks = MutableLiveData<List<Task>>()
+    val currentHomeTasks: LiveData<List<Task>> get() = _currentHomeTasks
+
+    private val _currentHomeDetails = MutableLiveData<Home?>()
+    val currentHomeDetails: LiveData<Home?> get() = _currentHomeDetails
+
+    private val _userNamesMap = MutableLiveData<Map<String, String>>(emptyMap())
+    val userNamesMap: LiveData<Map<String, String>> get() = _userNamesMap
+
+    fun loadHomeMembers(homeId: String) {
+        db.collection("homes").document(homeId).get()
+            .addOnSuccessListener { document ->
+                val memberIds = document.get("memberIds") as? List<String> ?: emptyList()
+
+                if (memberIds.isEmpty()) {
+                    _homeMembers.postValue(emptyList())
+                    return@addOnSuccessListener
+                }
+
+                db.collection("users")
+                    .whereIn(FieldPath.documentId(), memberIds)
+                    .get()
+                    .addOnSuccessListener { usersSnapshot ->
+                        val members = usersSnapshot.documents.mapNotNull { doc ->
+                            doc.toObject(User::class.java)?.apply { id = doc.id }
+                        }
+                        _homeMembers.postValue(members)
+                        updateUserNamesMap(members)
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("UserViewModel", "Error cargando miembros de la casa $homeId: $e")
+                        _homeMembers.postValue(emptyList())
+                    }
+            }
+            .addOnFailureListener { e ->
+                Log.e("UserViewModel", "Error obteniendo Home para miembros $homeId: $e")
+                _homeMembers.postValue(emptyList())
+            }
+    }
+
+    private fun updateUserNamesMap(users: List<User>) {
+        val currentMap = _userNamesMap.value.orEmpty().toMutableMap()
+        users.forEach { user ->
+            currentMap[user.id] = user.name
+        }
+        _userNamesMap.postValue(currentMap)
+    }
+
+    fun loadUserNamesForHome(homeId: String) {
+        loadHomeMembers(homeId)
+    }
+
+    fun loadHomeDetails(homeId: String) {
+        db.collection("homes").document(homeId).addSnapshotListener { snapshot, e ->
+            if (e != null) {
+                Log.w("UserViewModel", "Error al escuchar detalles de Home $homeId: $e")
+                _currentHomeDetails.postValue(null)
+                return@addSnapshotListener
+            }
+
+            if (snapshot != null && snapshot.exists()) {
+                val home = snapshot.toObject(Home::class.java)
+                _currentHomeDetails.postValue(home)
+            } else {
+                _currentHomeDetails.postValue(null)
+            }
+        }
+    }
+
+    fun updateHomeName(homeId: String, newName: String) {
+        db.collection("homes").document(homeId)
+            .update("name", newName)
+            .addOnSuccessListener {
+                Log.d("UserViewModel", "Nombre de home $homeId actualizado a: $newName")
+            }
+            .addOnFailureListener { e ->
+                Log.e("UserViewModel", "Error actualizando el nombre del home $homeId: $e")
+            }
+    }
+
+    fun updateHomeEditPermission(homeId: String, canEdit: Boolean) {
+        db.collection("homes").document(homeId)
+            .update("membersCanEdit", canEdit)
+            .addOnSuccessListener {
+                Log.d("UserViewModel", "Permiso de edición actualizado para home $homeId a $canEdit")
+            }
+            .addOnFailureListener { e ->
+                Log.e("UserViewModel", "Error actualizando permiso de edición para home $homeId: $e")
+            }
+    }
+
+    fun loadCurrentHomeTasks(homeId: String) {
+        db.collection("homes")
+            .document(homeId)
+            .collection("tasks")
+            .orderBy("state", Query.Direction.DESCENDING)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val tasks = snapshot.toObjects(Task::class.java)
+                _currentHomeTasks.postValue(tasks)
+            }
+            .addOnFailureListener { e ->
+                Log.e("UserViewModel", "Error cargando tareas para Home $homeId: $e")
+                _currentHomeTasks.postValue(emptyList())
+            }
+    }
+
     fun loadUserHomes(userId: String) {
         val db = FirebaseFirestore.getInstance()
 

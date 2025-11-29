@@ -52,6 +52,8 @@ class ProfileFragment : Fragment() {
     private val uvm: UserViewModel by viewModels()
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
+    private val currentUserId: String?
+        get() = auth.currentUser?.uid
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -64,7 +66,7 @@ class ProfileFragment : Fragment() {
         tvNumberCompletedTasks = view.findViewById(R.id.tv_numberCompletedTasks)
         btnLogout = view.findViewById(R.id.btn_logout)
 
-        tvProgressStatus = view.findViewById(R.id.tv_numberCompletedTasks)
+        tvProgressStatus = view.findViewById(R.id.tv_progressStatus)
         progressBar = view.findViewById(R.id.progressBar_assignments)
 
         llHousesSection = view.findViewById(R.id.ll_housesSection)
@@ -97,43 +99,37 @@ class ProfileFragment : Fragment() {
             val intent = Intent(requireContext(), LoginActivity::class.java)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             startActivity(intent)
-        }
-
-        btnLogout.setOnClickListener{
-
-            auth.signOut()
-            val intent = Intent(context, LoginActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            startActivity(intent)
             activity?.finish()
-
         }
-
-        return view
+        return null
     }
 
     private fun setupObservers(){
 
-            uvm.userTaskProgress.observe(viewLifecycleOwner){ progress ->
+        uvm.userTaskProgress.observe(viewLifecycleOwner){ progress ->
 
-                tvNumberCompletedTasks.text = progress.completedTasks.toString()
-                progressBar.progress = progress.progressPercentage
-                if(progress.totalTasks == 0){
+            progressBar.progress = progress.progressPercentage
+            if(progress.totalTasks == 0){
 
-                    tvProgressStatus.text = "Sin tareas asignadas"
+                tvProgressStatus.text = "Sin tareas asignadas"
 
-                }else{
+            }else{
 
-                    tvProgressStatus.text = "${progress.completedTasks}/${progress.totalTasks} hechas (${progress.progressPercentage}%)"
-
-                }
+                tvProgressStatus.text = "${progress.completedTasks}/${progress.totalTasks} hechas (${progress.progressPercentage}%)"
 
             }
 
-            uvm.userTasksGroupedByHome.observe(viewLifecycleOwner) { homeTasksPairs ->
-                displayUserTasksByHome(homeTasksPairs)
-            }
+        }
 
+        uvm.userTasksGroupedByHome.observe(viewLifecycleOwner) { homeTasksPairs ->
+            displayUserTasksByHome(homeTasksPairs)
+        }
+
+        uvm.userHomes.observe(viewLifecycleOwner) { allHomes ->
+            currentUserId?.let { uid ->
+                displayUserHomes(allHomes, uid)
+            }
+        }
     }
 
     private fun setupTasksCollapse() {
@@ -157,23 +153,22 @@ class ProfileFragment : Fragment() {
 
             db.collection("users").document(uid).get().
             addOnSuccessListener { document ->
-                    if (document.exists()) {
-                        val name = document.getString("name")
-                        val email = document.getString("email")
+                if (document.exists()) {
+                    val name = document.getString("name")
+                    val email = document.getString("email")
 
-                        tvCompleteName.text = name
-                        tvRealEmail.text = email
+                    tvCompleteName.text = name
+                    tvRealEmail.text = email
 
-                    }
                 }
+            }
                 .addOnFailureListener { e ->
                     tvCompleteName.text = "Error"
                 }
             uvm.loadUserAssignedTasksProgress(uid)
             uvm.loadUserTasksGroupedByHome(uid)
-            loadCreatedHomes(uid)
+            uvm.loadUserHomes(uid)
         } else {
-
         }
     }
 
@@ -215,30 +210,55 @@ class ProfileFragment : Fragment() {
         }
     }
 
-    private fun loadCreatedHomes(userId: String) {
-        db.collection("homes")
-            .whereEqualTo("ownerId", userId)
-            .get()
-            .addOnSuccessListener { querySnapshot ->
-                val homes = querySnapshot.toObjects(Home::class.java)
-                if (homes.isNotEmpty()) {
-                    llHousesSection.visibility = View.VISIBLE
-                    llHousesContainer.removeAllViews()
-                    homes.forEach { home ->
-                        displayHouse(home)
-                    }
-                } else {
-                    llHousesSection.visibility = View.GONE
-                }
+    private fun displayUserHomes(allHomes: List<Home>, currentUserId: String) {
+        llHousesContainer.removeAllViews()
+        llHousesSection.visibility = View.GONE
+
+        val ownedHomes = allHomes.filter { it.ownerId == currentUserId }
+        val memberHomes = allHomes.filter { it.ownerId != currentUserId }
+
+        var isVisible = false
+
+        if (ownedHomes.isNotEmpty()) {
+            displayHomeSectionHeader("My Houses")
+            ownedHomes.forEach { home ->
+                displayHouse(home, isOwner = true)
             }
-            .addOnFailureListener { e ->
-                llHousesSection.visibility = View.GONE
+            isVisible = true
+        }
+
+        if (memberHomes.isNotEmpty()) {
+            displayHomeSectionHeader("Member of")
+            memberHomes.forEach { home ->
+                displayHouse(home, isOwner = false)
             }
+            isVisible = true
+        }
+
+        if (isVisible) {
+            llHousesSection.visibility = View.VISIBLE
+        }
     }
 
-    private fun displayHouse(home: Home) {
-        val houseItemView = layoutInflater.inflate(R.layout.custome_toast_success, llHousesContainer, false)
-        
+    private fun displayHomeSectionHeader(title: String) {
+        val header = TextView(requireContext()).apply {
+            text = title
+            textSize = 18f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.black))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = 24
+                bottomMargin = 8
+            }
+        }
+        llHousesContainer.addView(header)
+    }
+
+    private fun displayHouse(home: Home, isOwner: Boolean) {
+
         val houseLayout = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
@@ -249,6 +269,10 @@ class ProfileFragment : Fragment() {
             }
             setPadding(12, 12, 12, 12)
             background = ContextCompat.getDrawable(requireContext(), R.drawable.rounded_edit_text)
+
+            setOnClickListener {
+                navigateToHomeProfile(home, isOwner)
+            }
         }
 
         val displayName = if (home.name.length > 20) {
@@ -280,33 +304,47 @@ class ProfileFragment : Fragment() {
             )
         }
 
-        val copyButton = Button(requireContext()).apply {
-            text = "Copy"
-            textSize = 12f
-            setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-            background = ContextCompat.getDrawable(requireContext(), R.drawable.rounded_button_purple)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setMargins(8, 0, 0, 0)
-            }
-            setPadding(24, 8, 24, 8)
-            
-            setOnClickListener {
-                val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("House Code", home.invitationCode)
-                clipboard.setPrimaryClip(clip)
+        if (isOwner) {
+            val copyButton = Button(requireContext()).apply {
+                text = "Copy"
+                textSize = 12f
+                setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                background = ContextCompat.getDrawable(requireContext(), R.drawable.rounded_button_purple)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(8, 0, 0, 0)
+                }
+                setPadding(24, 8, 24, 8)
 
-                textSuccess.text = "House code copied!"
-                toast.duration = Toast.LENGTH_SHORT
-                toast.view = layoutSuccess
-                toast.show()
+                setOnClickListener {
+                    val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    val clip = ClipData.newPlainText("House Code", home.invitationCode)
+                    clipboard.setPrimaryClip(clip)
+
+                    textSuccess.text = "House code copied!"
+                    toast.duration = Toast.LENGTH_SHORT
+                    toast.view = layoutSuccess
+                    toast.show()
+
+                    it.parent.requestDisallowInterceptTouchEvent(true)
+                }
             }
+            houseLayout.addView(houseInfoText)
+            houseLayout.addView(copyButton)
+        } else {
+            houseLayout.addView(houseInfoText)
         }
 
-        houseLayout.addView(houseInfoText)
-        houseLayout.addView(copyButton)
         llHousesContainer.addView(houseLayout)
+    }
+
+    private fun navigateToHomeProfile(home: Home, isOwner: Boolean) {
+        val fragment = HomeProfileFragment.newInstance(home, isOwner)
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, fragment)
+            .addToBackStack(null)
+            .commit()
     }
 }

@@ -8,13 +8,11 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
-import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.fragment.app.activityViewModels
 import com.google.firebase.firestore.FirebaseFirestore
-
 
 class NewTaskFragment : Fragment() {
 
@@ -31,19 +29,28 @@ class NewTaskFragment : Fragment() {
     private val memberMap = mutableMapOf<String, String>()
     private val houseMemberNames = mutableListOf<String>()
     private var isSpinnerInitialized = false
-
-
-
-
-
+    private var existingTask: Task? = null
+    private var isEditMode: Boolean = false
+    private var currentHomeId: String? = null
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragment_new_task, container, false)
 
+        arguments?.let {
+            currentHomeId = it.getString(ARG_HOME_ID)
+            existingTask = it.getParcelable(ARG_TASK)
+            if (existingTask != null) {
+                isEditMode = true
+            }
+        }
 
-        val homes = listOf<Home>()
+        if (currentHomeId == null) {
+            Toast.makeText(requireContext(), "Error: ID de Home no disponible.", Toast.LENGTH_SHORT).show()
+            parentFragmentManager.popBackStack()
+            return view
+        }
 
         taskName = view.findViewById(R.id.taskName)
         taskDesc = view.findViewById(R.id.taskDesc)
@@ -61,27 +68,55 @@ class NewTaskFragment : Fragment() {
 
         loadHouseMembers()
 
+        if (isEditMode && existingTask != null) {
+            val task = existingTask!!
+            taskName.setText(task.nombre)
+            taskDesc.setText(task.descripcio)
+            saveButton.text = "Guardar Cambios"
+
+            task.date.forEach { dayFull ->
+                val dayShort = dayButtons.find { date(it.text.toString()) == dayFull }?.text.toString()
+
+                dayButtons.find { it.text.toString() == dayShort }?.let { button ->
+                    button.setBackgroundResource(R.drawable.button_enabled)
+                    button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                    button.tag = "selected"
+                    selectedDays.add(dayFull)
+                }
+            }
+
+            task.member.zip(task.assignedTo).forEach { (name, id) ->
+                memberMap[name] = id
+            }
+
+        } else {
+            saveButton.text = "Crear Tarea"
+        }
+
         dayButtons.forEach { button ->
             Log.d("Dias", button.text.toString())
-            button.tag = "unselected"
+            if (button.tag != "selected") {
+                button.tag = "unselected"
+            }
 
             button.setOnClickListener {
-                val day = button.text.toString()
-                
+                val dayShort = button.text.toString()
+                val dayFull = date(dayShort)
+
                 if (button.tag == "selected") {
 
                     button.setBackgroundResource(R.drawable.button_outline)
                     button.setTextColor(ContextCompat.getColor(requireContext(), R.color.purple))
                     button.tag = "unselected"
-                    selectedDays.remove(date(day))
+                    selectedDays.remove(dayFull)
                 } else {
 
                     button.setBackgroundResource(R.drawable.button_enabled)
                     button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
                     button.tag = "selected"
-                    selectedDays.add(date(day))
+                    selectedDays.add(dayFull)
                 }
-                
+
                 checkFormState()
             }
         }
@@ -107,29 +142,54 @@ class NewTaskFragment : Fragment() {
 
         saveButton.setOnClickListener {
 
-            val homeId = homeViewModel.selectedHomeId.value
+            val homeId = currentHomeId
 
             if (homeId == null) {
                 Toast.makeText(requireContext(), "No hay un hogar seleccionado", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            val db = FirebaseFirestore.getInstance()
-            val taskRef = db.collection("homes")
-                .document(homeId)
-                .collection("tasks")
-                .document()
-            
-            val task = createTask(taskRef.id)
+            if (!checkFormState(true)) {
+                Toast.makeText(requireContext(), "Por favor, completa todos los campos requeridos.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
 
-            taskRef.set(task)
-                .addOnSuccessListener {
-                    Toast.makeText(requireContext(), "Tarea creada!", Toast.LENGTH_SHORT).show()
-                    parentFragmentManager.popBackStack()
-                }
-                .addOnFailureListener {
-                    Toast.makeText(requireContext(), "Error al guardar", Toast.LENGTH_LONG).show()
-                }
+            val db = FirebaseFirestore.getInstance()
+
+            if (isEditMode && existingTask != null) {
+                val taskToUpdate = createTaskOrUpdate(existingTask!!.id)
+
+                db.collection("homes").document(homeId)
+                    .collection("tasks").document(taskToUpdate.id)
+                    .set(taskToUpdate)
+                    .addOnSuccessListener {
+                        Toast.makeText(requireContext(), "Tarea actualizada!", Toast.LENGTH_SHORT).show()
+                        parentFragmentManager.popBackStack()
+                        parentFragmentManager.popBackStack()
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("NewTaskFragment", "Error updating task", e)
+                        Toast.makeText(requireContext(), "Error al actualizar: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+
+            } else {
+                val taskRef = db.collection("homes")
+                    .document(homeId)
+                    .collection("tasks")
+                    .document()
+
+                val newTask = createTaskOrUpdate(taskRef.id)
+
+                taskRef.set(newTask)
+                    .addOnSuccessListener {
+                        Toast.makeText(requireContext(), "Tarea creada!", Toast.LENGTH_SHORT).show()
+                        parentFragmentManager.popBackStack()
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("NewTaskFragment", "Error creating task", e)
+                        Toast.makeText(requireContext(), "Error al guardar: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+            }
         }
 
         val backButton: Button = view.findViewById(R.id.backButton)
@@ -141,8 +201,8 @@ class NewTaskFragment : Fragment() {
     }
 
     private fun loadHouseMembers() {
-        val homeId = homeViewModel.selectedHomeId.value
-        
+        val homeId = currentHomeId
+
         if (homeId == null) {
             Toast.makeText(requireContext(), "No hay un hogar seleccionado", Toast.LENGTH_SHORT).show()
             val placeholder = listOf("Seleccionar miembro...")
@@ -158,7 +218,7 @@ class NewTaskFragment : Fragment() {
             .addOnSuccessListener { document ->
                 if (document != null && document.exists()) {
                     val memberIds = document.get("members") as? List<String> ?: emptyList()
-                    
+
                     if (memberIds.isEmpty()) {
                         houseMemberNames.clear()
                         val membersWithPlaceholder = listOf("Seleccionar miembro...")
@@ -170,6 +230,8 @@ class NewTaskFragment : Fragment() {
                     houseMemberNames.clear()
                     var loadedCount = 0
 
+                    val existingMembers = existingTask?.member ?: emptyList()
+
                     memberIds.forEach { userId ->
                         FirebaseFirestore.getInstance()
                             .collection("users")
@@ -180,12 +242,16 @@ class NewTaskFragment : Fragment() {
                                     val userName = userDoc.getString("name") ?: "Unknown"
                                     memberMap[userName] = userId
                                     houseMemberNames.add(userName)
+
+                                    if (isEditMode && existingMembers.contains(userName)) {
+                                        addChip(userName)
+                                    }
                                 }
-                                
+
                                 loadedCount++
                                 if (loadedCount == memberIds.size) {
                                     val membersWithPlaceholder = mutableListOf("Seleccionar miembro...")
-                                    membersWithPlaceholder.addAll(houseMemberNames)
+                                    membersWithPlaceholder.addAll(houseMemberNames.sorted())
                                     memberSpinner.adapter = ArrayAdapter(
                                         requireContext(),
                                         android.R.layout.simple_spinner_dropdown_item,
@@ -199,7 +265,7 @@ class NewTaskFragment : Fragment() {
                                 loadedCount++
                                 if (loadedCount == memberIds.size) {
                                     val membersWithPlaceholder = mutableListOf("Seleccionar miembro...")
-                                    membersWithPlaceholder.addAll(houseMemberNames)
+                                    membersWithPlaceholder.addAll(houseMemberNames.sorted())
                                     memberSpinner.adapter = ArrayAdapter(
                                         requireContext(),
                                         android.R.layout.simple_spinner_dropdown_item,
@@ -243,13 +309,15 @@ class NewTaskFragment : Fragment() {
         checkFormState()
     }
 
-    private fun checkFormState(isButtonClick: Boolean = false) {
+    private fun checkFormState(isButtonClick: Boolean = false): Boolean {
         val valid = taskName.text.isNotBlank() && taskDesc.text.isNotBlank()
         val anyDaySelected = dayButtons.any { it.tag == "selected" }
         val anyNameInChips = chipsContainer.childCount > 0
 
+        val overallValid = valid && anyDaySelected && anyNameInChips
 
-        if (valid && anyDaySelected && anyNameInChips) {
+
+        if (overallValid) {
             saveButton.isEnabled = true
             saveButton.setBackgroundResource(R.drawable.button_enabled)
             taskName.setBackgroundResource(R.drawable.edittext_bg)
@@ -263,6 +331,7 @@ class NewTaskFragment : Fragment() {
                 taskDesc.setBackgroundResource(R.drawable.edittext_bg_error)
             }
         }
+        return overallValid
     }
 
     fun date(date: String): String{
@@ -282,7 +351,7 @@ class NewTaskFragment : Fragment() {
 
     }
 
-    fun createTask(taskId: String): Task {
+    fun createTaskOrUpdate(taskId: String): Task {
         return Task(
             id = taskId,
             nombre = taskName.text.toString(),
@@ -290,9 +359,25 @@ class NewTaskFragment : Fragment() {
             member = userList.map { it.nombre },
             assignedTo = userList.map { it.id },
             date = selectedDays.toList(),
-            state = "Pendiente",
-            editableBy = emptyList()
+            state = existingTask?.state ?: "Pendiente",
+            completionDate = existingTask?.completionDate,
+            stability = existingTask?.stability ?: 0,
+            editableBy = existingTask?.editableBy ?: emptyList()
         )
     }
 
+    companion object {
+        private const val ARG_TASK = "task_object"
+        private const val ARG_HOME_ID = "home_id"
+
+        fun newInstance(homeId: String, task: Task? = null): NewTaskFragment {
+            val fragment = NewTaskFragment()
+            val args = Bundle().apply {
+                putString(ARG_HOME_ID, homeId)
+                task?.let { putParcelable(ARG_TASK, it) }
+            }
+            fragment.arguments = args
+            return fragment
+        }
+    }
 }
