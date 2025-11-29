@@ -1,7 +1,5 @@
 package valdez.francisco.dingdone
 
-import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -9,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.core.content.ContextCompat
+import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.fragment.app.activityViewModels
@@ -22,35 +21,52 @@ class NewTaskFragment : Fragment() {
     private lateinit var memberSpinner: Spinner
     private lateinit var chipsContainer: LinearLayout
     private lateinit var dayButtons: List<Button>
+
     private val userList = mutableListOf<UserData>()
     private val selectedDays = mutableSetOf<String>()
+
     private val taskViewModel: TaskViewModel by viewModels()
     private val homeViewModel: HomeShareViewModel by activityViewModels()
+
     private val memberMap = mutableMapOf<String, String>()
     private val houseMemberNames = mutableListOf<String>()
     private var isSpinnerInitialized = false
-    private var existingTask: Task? = null
-    private var isEditMode: Boolean = false
-    private var currentHomeId: String? = null
+
+    private var mode: String = "create"
+    private var taskId: String? = null
+
+    private fun validateBeforeSaving(): Boolean {
+
+        if (taskName.text.isBlank()) {
+            Toast.makeText(requireContext(), "El nombre no puede estar vacío", Toast.LENGTH_SHORT).show()
+            return false
+        }
+
+        if (taskDesc.text.isBlank()) {
+            Toast.makeText(requireContext(), "La descripción no puede estar vacía", Toast.LENGTH_SHORT).show()
+            return false
+        }
+
+        if (selectedDays.isEmpty()) {
+            Toast.makeText(requireContext(), "Debes seleccionar al menos un día", Toast.LENGTH_SHORT).show()
+            return false
+        }
+
+        if (userList.isEmpty()) {
+            Toast.makeText(requireContext(), "Debes asignar al menos un miembro", Toast.LENGTH_SHORT).show()
+            return false
+        }
+
+        return true
+    }
+
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+
         val view = inflater.inflate(R.layout.fragment_new_task, container, false)
-
-        arguments?.let {
-            currentHomeId = it.getString(ARG_HOME_ID)
-            existingTask = it.getParcelable(ARG_TASK)
-            if (existingTask != null) {
-                isEditMode = true
-            }
-        }
-
-        if (currentHomeId == null) {
-            Toast.makeText(requireContext(), "Error: ID de Home no disponible.", Toast.LENGTH_SHORT).show()
-            parentFragmentManager.popBackStack()
-            return view
-        }
 
         taskName = view.findViewById(R.id.taskName)
         taskDesc = view.findViewById(R.id.taskDesc)
@@ -58,238 +74,237 @@ class NewTaskFragment : Fragment() {
         memberSpinner = view.findViewById(R.id.memberSpinner)
         chipsContainer = view.findViewById(R.id.chipsContainer)
 
-        val backButtonHeader: ImageButton = view.findViewById(R.id.backButtonHeader)
-        backButtonHeader.setOnClickListener {
-            parentFragmentManager.popBackStack()
-        }
+        mode = arguments?.getString("mode") ?: "create"
+        taskId = arguments?.getString("taskId")
 
         val daysContainer = view.findViewById<GridLayout>(R.id.daysContainer)
         dayButtons = (0 until daysContainer.childCount).map { daysContainer.getChildAt(it) as Button }
 
+        val backButtonHeader: ImageButton = view.findViewById(R.id.backButtonHeader)
+        backButtonHeader.setOnClickListener { parentFragmentManager.popBackStack() }
+
         loadHouseMembers()
+        configureDays()
+        configureSpinner()
+        configureInputs()
 
-        if (isEditMode && existingTask != null) {
-            val task = existingTask!!
-            taskName.setText(task.nombre)
-            taskDesc.setText(task.descripcio)
-            saveButton.text = "Guardar Cambios"
-
-            task.date.forEach { dayFull ->
-                val dayShort = dayButtons.find { date(it.text.toString()) == dayFull }?.text.toString()
-
-                dayButtons.find { it.text.toString() == dayShort }?.let { button ->
-                    button.setBackgroundResource(R.drawable.button_enabled)
-                    button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-                    button.tag = "selected"
-                    selectedDays.add(dayFull)
-                }
-            }
-
-            task.member.zip(task.assignedTo).forEach { (name, id) ->
-                memberMap[name] = id
-            }
-
-        } else {
-            saveButton.text = "Crear Tarea"
-        }
-
-        dayButtons.forEach { button ->
-            Log.d("Dias", button.text.toString())
-            if (button.tag != "selected") {
-                button.tag = "unselected"
-            }
-
-            button.setOnClickListener {
-                val dayShort = button.text.toString()
-                val dayFull = date(dayShort)
-
-                if (button.tag == "selected") {
-
-                    button.setBackgroundResource(R.drawable.button_outline)
-                    button.setTextColor(ContextCompat.getColor(requireContext(), R.color.purple))
-                    button.tag = "unselected"
-                    selectedDays.remove(dayFull)
-                } else {
-
-                    button.setBackgroundResource(R.drawable.button_enabled)
-                    button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-                    button.tag = "selected"
-                    selectedDays.add(dayFull)
-                }
-
-                checkFormState()
-            }
-        }
-
-        memberSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>, view: View?, position: Int, id: Long
-            ) {
-                if (!isSpinnerInitialized) {
-                    isSpinnerInitialized = true
-                    return
-                }
-                val name = parent.getItemAtPosition(position).toString()
-                if (name.isNotBlank() && position > 0) addChip(name)
-                checkFormState()
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
-
-        taskName.setOnFocusChangeListener { _, _ -> checkFormState() }
-        taskDesc.setOnFocusChangeListener { _, _ -> checkFormState() }
-
+        if (mode == "create") enableSaveButton()
         saveButton.setOnClickListener {
 
-            val homeId = currentHomeId
+            if (!validateBeforeSaving()) return@setOnClickListener
 
-            if (homeId == null) {
-                Toast.makeText(requireContext(), "No hay un hogar seleccionado", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            if (!checkFormState(true)) {
-                Toast.makeText(requireContext(), "Por favor, completa todos los campos requeridos.", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            val db = FirebaseFirestore.getInstance()
-
-            if (isEditMode && existingTask != null) {
-                val taskToUpdate = createTaskOrUpdate(existingTask!!.id)
-
-                db.collection("homes").document(homeId)
-                    .collection("tasks").document(taskToUpdate.id)
-                    .set(taskToUpdate)
-                    .addOnSuccessListener {
-                        Toast.makeText(requireContext(), "Tarea actualizada!", Toast.LENGTH_SHORT).show()
-                        parentFragmentManager.popBackStack()
-                        parentFragmentManager.popBackStack()
-                    }
-                    .addOnFailureListener { e ->
-                        Log.e("NewTaskFragment", "Error updating task", e)
-                        Toast.makeText(requireContext(), "Error al actualizar: ${e.message}", Toast.LENGTH_LONG).show()
-                    }
-
-            } else {
-                val taskRef = db.collection("homes")
-                    .document(homeId)
-                    .collection("tasks")
-                    .document()
-
-                val newTask = createTaskOrUpdate(taskRef.id)
-
-                taskRef.set(newTask)
-                    .addOnSuccessListener {
-                        Toast.makeText(requireContext(), "Tarea creada!", Toast.LENGTH_SHORT).show()
-                        parentFragmentManager.popBackStack()
-                    }
-                    .addOnFailureListener { e ->
-                        Log.e("NewTaskFragment", "Error creating task", e)
-                        Toast.makeText(requireContext(), "Error al guardar: ${e.message}", Toast.LENGTH_LONG).show()
-                    }
-            }
+            if (mode == "edit") updateTask()
+            else createTask()
         }
 
-        val backButton: Button = view.findViewById(R.id.backButton)
-        backButton.setOnClickListener {
-            parentFragmentManager.popBackStack()
+        if (mode == "edit" && taskId != null) {
+            saveButton.isEnabled = false
+            saveButton.alpha = 0.5f
+            loadTaskData(taskId!!)
         }
 
         return view
     }
 
-    private fun loadHouseMembers() {
-        val homeId = currentHomeId
 
-        if (homeId == null) {
-            Toast.makeText(requireContext(), "No hay un hogar seleccionado", Toast.LENGTH_SHORT).show()
-            val placeholder = listOf("Seleccionar miembro...")
-            memberSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, placeholder)
-            isSpinnerInitialized = false
-            return
+    private fun enableSaveButton() {
+        saveButton.isEnabled = true
+        saveButton.alpha = 1f
+    }
+
+    private fun loadTaskData(id: String) {
+        val homeId = homeViewModel.selectedHomeId.value ?: return
+        val db = FirebaseFirestore.getInstance()
+
+        db.collection("homes")
+            .document(homeId)
+            .collection("tasks")
+            .document(id)
+            .get()
+            .addOnSuccessListener { doc ->
+
+                if (!doc.exists()) return@addOnSuccessListener
+
+                taskName.setText(doc.getString("nombre") ?: "")
+                taskDesc.setText(doc.getString("descripcio") ?: "")
+
+                val members = doc.get("member") as? List<String> ?: emptyList()
+                val days = doc.get("date") as? List<String> ?: emptyList()
+
+                members.forEach { name -> addChip(name) }
+
+                dayButtons.forEach { button ->
+                    val day = date(button.text.toString())
+                    if (day in days) {
+                        button.performClick()
+                    }
+                }
+
+                saveButton.text = "Guardar cambios"
+
+                configureInputs()
+            }
+    }
+
+    private fun createTask() {
+        val homeId = homeViewModel.selectedHomeId.value ?: return
+        val db = FirebaseFirestore.getInstance()
+
+        val taskRef = db.collection("homes")
+            .document(homeId)
+            .collection("tasks")
+            .document()
+
+        val task = Task(
+            id = taskRef.id,
+            nombre = taskName.text.toString(),
+            descripcio = taskDesc.text.toString(),
+            member = userList.map { it.nombre },
+            assignedTo = userList.map { it.id },
+            date = selectedDays.toList(),
+            state = "Pendiente",
+            editableBy = emptyList()
+        )
+
+        taskRef.set(task)
+            .addOnSuccessListener {
+                Toast.makeText(requireContext(), "Tarea creada!", Toast.LENGTH_SHORT).show()
+                parentFragmentManager.popBackStack()
+            }
+            .addOnFailureListener {
+                Toast.makeText(requireContext(), "Error al guardar", Toast.LENGTH_LONG).show()
+            }
+    }
+
+    private fun updateTask() {
+        val homeId = homeViewModel.selectedHomeId.value ?: return
+        val id = taskId ?: return
+
+        val db = FirebaseFirestore.getInstance()
+
+        val updates = mapOf(
+            "nombre" to taskName.text.toString(),
+            "descripcio" to taskDesc.text.toString(),
+            "member" to userList.map { it.nombre },
+            "assignedTo" to userList.map { it.id },
+            "date" to selectedDays.toList()
+        )
+
+        db.collection("homes")
+            .document(homeId)
+            .collection("tasks")
+            .document(id)
+            .update(updates)
+            .addOnSuccessListener {
+                Toast.makeText(requireContext(), "Cambios guardados!", Toast.LENGTH_SHORT).show()
+                parentFragmentManager.popBackStack()
+            }
+            .addOnFailureListener {
+                Toast.makeText(requireContext(), "Error al actualizar", Toast.LENGTH_LONG).show()
+            }
+    }
+
+    private fun configureDays() {
+        dayButtons.forEach { button ->
+            button.tag = "unselected"
+            button.setOnClickListener {
+                val day = button.text.toString()
+
+                if (button.tag == "selected") {
+                    button.setBackgroundResource(R.drawable.button_outline)
+                    button.setTextColor(ContextCompat.getColor(requireContext(), R.color.purple))
+                    button.tag = "unselected"
+                    selectedDays.remove(date(day))
+                } else {
+                    button.setBackgroundResource(R.drawable.button_enabled)
+                    button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+                    button.tag = "selected"
+                    selectedDays.add(date(day))
+                }
+
+                enableSaveButton()
+            }
         }
+    }
+
+    private fun configureSpinner() {
+        memberSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
+                if (!isSpinnerInitialized) {
+                    isSpinnerInitialized = true
+                    return
+                }
+                val name = parent.getItemAtPosition(position).toString()
+                if (name.isNotBlank() && position > 0) {
+                    addChip(name)
+                    enableSaveButton()
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    private fun configureInputs() {
+        taskName.addTextChangedListener { enableSaveButton() }
+        taskDesc.addTextChangedListener { enableSaveButton() }
+    }
+
+
+    private fun loadHouseMembers() {
+        val homeId = homeViewModel.selectedHomeId.value ?: return
 
         FirebaseFirestore.getInstance()
             .collection("homes")
             .document(homeId)
             .get()
-            .addOnSuccessListener { document ->
-                if (document != null && document.exists()) {
-                    val memberIds = document.get("members") as? List<String> ?: emptyList()
+            .addOnSuccessListener { doc ->
+                val memberIds = doc.get("members") as? List<String> ?: emptyList()
 
-                    if (memberIds.isEmpty()) {
-                        houseMemberNames.clear()
-                        val membersWithPlaceholder = listOf("Seleccionar miembro...")
-                        memberSpinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, membersWithPlaceholder)
-                        isSpinnerInitialized = false
-                        return@addOnSuccessListener
-                    }
-
-                    houseMemberNames.clear()
-                    var loadedCount = 0
-
-                    val existingMembers = existingTask?.member ?: emptyList()
-
-                    memberIds.forEach { userId ->
-                        FirebaseFirestore.getInstance()
-                            .collection("users")
-                            .document(userId)
-                            .get()
-                            .addOnSuccessListener { userDoc ->
-                                if (userDoc != null && userDoc.exists()) {
-                                    val userName = userDoc.getString("name") ?: "Unknown"
-                                    memberMap[userName] = userId
-                                    houseMemberNames.add(userName)
-
-                                    if (isEditMode && existingMembers.contains(userName)) {
-                                        addChip(userName)
-                                    }
-                                }
-
-                                loadedCount++
-                                if (loadedCount == memberIds.size) {
-                                    val membersWithPlaceholder = mutableListOf("Seleccionar miembro...")
-                                    membersWithPlaceholder.addAll(houseMemberNames.sorted())
-                                    memberSpinner.adapter = ArrayAdapter(
-                                        requireContext(),
-                                        android.R.layout.simple_spinner_dropdown_item,
-                                        membersWithPlaceholder
-                                    )
-                                    isSpinnerInitialized = false
-                                }
-                            }
-                            .addOnFailureListener { e ->
-                                Log.w("NewTaskFragment", "Error loading user $userId: $e")
-                                loadedCount++
-                                if (loadedCount == memberIds.size) {
-                                    val membersWithPlaceholder = mutableListOf("Seleccionar miembro...")
-                                    membersWithPlaceholder.addAll(houseMemberNames.sorted())
-                                    memberSpinner.adapter = ArrayAdapter(
-                                        requireContext(),
-                                        android.R.layout.simple_spinner_dropdown_item,
-                                        membersWithPlaceholder
-                                    )
-                                    isSpinnerInitialized = false
-                                }
-                            }
-                    }
-                } else {
-                    Toast.makeText(requireContext(), "Hogar no encontrado", Toast.LENGTH_SHORT).show()
+                if (memberIds.isEmpty()) {
+                    memberSpinner.adapter = ArrayAdapter(
+                        requireContext(),
+                        android.R.layout.simple_spinner_dropdown_item,
+                        listOf("Seleccionar miembro...")
+                    )
+                    isSpinnerInitialized = false
+                    return@addOnSuccessListener
                 }
-            }
-            .addOnFailureListener { e ->
-                Log.w("NewTaskFragment", "Error loading home: $e")
-                Toast.makeText(requireContext(), "Error al cargar miembros", Toast.LENGTH_SHORT).show()
+
+                houseMemberNames.clear()
+                var loadedCount = 0
+
+                memberIds.forEach { userId ->
+                    FirebaseFirestore.getInstance()
+                        .collection("users")
+                        .document(userId)
+                        .get()
+                        .addOnSuccessListener { userDoc ->
+                            val userName = userDoc.getString("name") ?: "Unknown"
+                            memberMap[userName] = userId
+                            houseMemberNames.add(userName)
+
+                            loadedCount++
+                            if (loadedCount == memberIds.size) {
+                                val items = mutableListOf("Seleccionar miembro...")
+                                items.addAll(houseMemberNames)
+                                memberSpinner.adapter = ArrayAdapter(
+                                    requireContext(),
+                                    android.R.layout.simple_spinner_dropdown_item,
+                                    items
+                                )
+                                isSpinnerInitialized = false
+                            }
+                        }
+                }
             }
     }
 
-    private fun addChip(name: String) {
 
+    private fun addChip(name: String) {
         if (userList.any { it.nombre == name }) return
 
         val userId = memberMap[name] ?: return
+
         val chip = TextView(requireContext()).apply {
             text = "$name ✕"
             setPadding(24, 8, 24, 8)
@@ -298,86 +313,24 @@ class NewTaskFragment : Fragment() {
             setOnClickListener {
                 chipsContainer.removeView(this)
                 userList.removeIf { it.nombre == name }
-                checkFormState()
+                enableSaveButton()
             }
-            val params = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            params.setMargins(8, 0, 8, 0)
-            layoutParams = params
         }
+
         chipsContainer.addView(chip)
         userList.add(UserData(userId, name))
-        checkFormState()
+        enableSaveButton()
     }
 
-    private fun checkFormState(isButtonClick: Boolean = false): Boolean {
-        val valid = taskName.text.isNotBlank() && taskDesc.text.isNotBlank()
-        val anyDaySelected = dayButtons.any { it.tag == "selected" }
-        val anyNameInChips = chipsContainer.childCount > 0
 
-        val overallValid = valid && anyDaySelected && anyNameInChips
-
-
-        if (overallValid) {
-            saveButton.isEnabled = true
-            saveButton.setBackgroundResource(R.drawable.button_enabled)
-            taskName.setBackgroundResource(R.drawable.edittext_bg)
-            taskDesc.setBackgroundResource(R.drawable.edittext_bg)
-
-        } else {
-            saveButton.isEnabled = false
-            saveButton.setBackgroundResource(R.drawable.button_disabled)
-            if ((taskName.text.isBlank() || taskDesc.text.isBlank()) && isButtonClick) {
-                taskName.setBackgroundResource(R.drawable.edittext_bg_error)
-                taskDesc.setBackgroundResource(R.drawable.edittext_bg_error)
-            }
-        }
-        return overallValid
-    }
-
-    fun date(date: String): String{
-
-        return when(date){
-
-            "Mon" -> "Lunes"
-            "Tue" -> "Martes"
-            "Wed" -> "Miercoles"
-            "Thu" -> "Jueves"
-            "Fri" -> "Viernes"
-            "Sat" -> "Sabado"
-            "Sun" -> "Domingo"
-            else -> "Desconocido"
-
-        }
-
-    }
-
-    fun createTaskOrUpdate(taskId: String): Task {
-        return Task(
-            id = taskId,
-            nombre = taskName.text.toString(),
-            descripcio = taskDesc.text.toString(),
-            member = userList.map { it.nombre },
-            assignedTo = userList.map { it.id },
-            date = selectedDays.toList(),
-            state = existingTask?.state ?: "Pendiente",
-            completionDate = existingTask?.completionDate,
-            stability = existingTask?.stability ?: 0,
-            editableBy = existingTask?.editableBy ?: emptyList()
-        )
-    }
-
-    companion object {
-        private const val ARG_TASK = "task_object"
-        private const val ARG_HOME_ID = "home_id"
-
-        fun newInstance(homeId: String, task: Task? = null): NewTaskFragment {
-            val fragment = NewTaskFragment()
-            val args = Bundle().apply {
-                putString(ARG_HOME_ID, homeId)
-                task?.let { putParcelable(ARG_TASK, it) }
-            }
-            fragment.arguments = args
-            return fragment
-        }
+    fun date(day: String): String = when (day) {
+        "Mon" -> "Lunes"
+        "Tue" -> "Martes"
+        "Wed" -> "Miercoles"
+        "Thu" -> "Jueves"
+        "Fri" -> "Viernes"
+        "Sat" -> "Sabado"
+        "Sun" -> "Domingo"
+        else -> day
     }
 }
