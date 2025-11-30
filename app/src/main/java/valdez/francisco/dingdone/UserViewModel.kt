@@ -591,17 +591,30 @@ class UserViewModel : ViewModel() {
             }
     }
 
-    /**
-     * Carga tareas que *no fueron completadas* en el período.
-     * Asigna crédito de "pendiente" a *todos* los usuarios en assignedTo.
-     */
     fun loadUnfinishedTasksForHome(homeId: String, period: PeriodType) {
         if (homeId.isEmpty()) {
             _unfinishedTasksData.postValue(emptyList())
             return
         }
 
-        val startTime = getStartTime(System.currentTimeMillis(), period)
+        val memberNameCache = mutableMapOf<String, String>()
+
+        fun getMemberName(memberId: String, onResult: (String) -> Unit) {
+            memberNameCache[memberId]?.let {
+                onResult(it)
+                return
+            }
+
+            db.collection("users").document(memberId).get()
+                .addOnSuccessListener { snap ->
+                    val name = snap.getString("name") ?: memberId
+                    memberNameCache[memberId] = name
+                    onResult(name)
+                }
+                .addOnFailureListener {
+                    onResult(memberId)
+                }
+        }
 
         db.collection("homes")
             .document(homeId)
@@ -609,9 +622,8 @@ class UserViewModel : ViewModel() {
             .get()
             .addOnSuccessListener { snapshot ->
                 val tasks = snapshot.toObjects(Task::class.java)
-
-                val unfinishedTasksForChart = mutableListOf<Task>()
-                var processed = 0
+                val unfinishedList = mutableListOf<Task>()
+                var processedTasks = 0
 
                 if (tasks.isEmpty()) {
                     _unfinishedTasksData.postValue(emptyList())
@@ -619,63 +631,116 @@ class UserViewModel : ViewModel() {
                 }
 
                 tasks.forEach { task ->
+
                     db.collection("homes").document(homeId)
                         .collection("tasks").document(task.id)
                         .collection("history")
-                        .whereEqualTo("status", "Completada")
                         .get()
                         .addOnSuccessListener { historySnap ->
 
-                            // 1. Comprobar si *EXISTE* algún registro 'Completada' en el período actual.
-                            val hasCompletedThisPeriod = historySnap.documents.any { entry ->
-                                val completedAtStr = entry.getString("completedAt")
-                                val completedAt = completedAtStr?.let { parseHistoryDate(it) }
-                                completedAt != null && completedAt >= startTime
-                            }
+                            val historyDocs = historySnap.documents
 
-                            if (!hasCompletedThisPeriod) {
-                                // 2. Si NO se ha completado en el período: se considera pendiente.
+                            val assignedList = if (task.assignedTo.isNotEmpty()) task.assignedTo else task.member
 
-                                // 3. ¡CRÍTICO! Asignar el crédito de "pendiente" a todos los usuarios asignados
-                                task.assignedTo.forEach { userId ->
-                                    val taskClone = task.copy(
-                                        state = "Pendiente",
-                                        // Asignamos el ID del asignado al campo 'member' para el conteo de la gráfica
-                                        member = listOf(userId)
-                                    )
-                                    unfinishedTasksForChart.add(taskClone)
+                            // Si no hay historial → Uncompleted con assignedList
+                            if (historyDocs.isEmpty()) {
+
+                                val memberNames = mutableListOf<String>()
+                                var processedMembers = 0
+
+                                if (assignedList.isEmpty()) {
+                                    unfinishedList.add(task.copy(state = "Pendiente", member = emptyList()))
+                                    processedTasks++
+                                    if (processedTasks == tasks.size)
+                                        _unfinishedTasksData.postValue(unfinishedList)
+                                    return@addOnSuccessListener
+                                }
+
+                                assignedList.forEach { memberIdOrName ->
+                                    fun addMember(name: String) {
+                                        memberNames.add(name)
+                                        processedMembers++
+                                        if (processedMembers == assignedList.size) {
+                                            unfinishedList.add(task.copy(state = "Pendiente", member = memberNames))
+                                            processedTasks++
+                                            if (processedTasks == tasks.size)
+                                                _unfinishedTasksData.postValue(unfinishedList)
+                                        }
+                                    }
+
+                                    if (memberIdOrName.length < 20) {
+                                        addMember(memberIdOrName)
+                                    } else {
+                                        getMemberName(memberIdOrName) { name ->
+                                            addMember(name)
+                                        }
+                                    }
+                                }
+
+                            } else {
+                                // Si hay historial, revisar si tiene completadas
+                                val wasCompleted = historyDocs.any { entry ->
+                                    entry.getString("completedBy") != null
+                                }
+
+                                if (!wasCompleted) {
+                                    val memberNames = mutableListOf<String>()
+                                    var processedMembers = 0
+
+                                    if (assignedList.isEmpty()) {
+                                        unfinishedList.add(task.copy(state = "Pendiente", member = emptyList()))
+                                        processedTasks++
+                                        if (processedTasks == tasks.size)
+                                            _unfinishedTasksData.postValue(unfinishedList)
+                                        return@addOnSuccessListener
+                                    }
+
+                                    assignedList.forEach { memberIdOrName ->
+                                        fun addMember(name: String) {
+                                            memberNames.add(name)
+                                            processedMembers++
+                                            if (processedMembers == assignedList.size) {
+                                                unfinishedList.add(task.copy(state = "Pendiente", member = memberNames))
+                                                processedTasks++
+                                                if (processedTasks == tasks.size)
+                                                    _unfinishedTasksData.postValue(unfinishedList)
+                                            }
+                                        }
+
+                                        if (memberIdOrName.length < 20) {
+                                            addMember(memberIdOrName)
+                                        } else {
+                                            getMemberName(memberIdOrName) { name ->
+                                                addMember(name)
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // Historial tiene completadas → no agregar
+                                    processedTasks++
+                                    if (processedTasks == tasks.size)
+                                        _unfinishedTasksData.postValue(unfinishedList)
                                 }
                             }
 
-                            processed++
-                            if (processed == tasks.size) {
-                                // 4. Finalizar y publicar la lista de tareas (una entrada por cada asignación pendiente)
-                                _unfinishedTasksData.postValue(unfinishedTasksForChart)
-                            }
                         }
-                        .addOnFailureListener { e ->
-                            Log.e("UVM", "Error cargando historial para chequeo de pendiente ${task.id}: $e")
-                            processed++
-                            if (processed == tasks.size) {
-                                _unfinishedTasksData.postValue(unfinishedTasksForChart)
-                            }
+                        .addOnFailureListener {
+                            processedTasks++
+                            if (processedTasks == tasks.size)
+                                _unfinishedTasksData.postValue(unfinishedList)
                         }
                 }
             }
-            .addOnFailureListener { e ->
-                Log.e("UVM", "Error cargando tareas para unfinished: $e")
+            .addOnFailureListener {
                 _unfinishedTasksData.postValue(emptyList())
             }
     }
-
 
     fun loadUserAssignedTasksProgress(userId: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
 
                 val userDoc = db.collection("users").document(userId).get().await()
-                // La variable userName no se usa después de la inicialización, se puede omitir o mantener.
-                // val userName = userDoc.getString("name")?.trim() ?: ""
 
                 val homesSnapshot = db.collection("homes")
                     .whereArrayContains("members", userId)
