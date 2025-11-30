@@ -3,11 +3,12 @@ package valdez.francisco.dingdone.graphics
 import android.content.Context
 import android.graphics.*
 import android.graphics.drawable.Drawable
+import valdez.francisco.dingdone.PieSlice
 
 class CustomPieDrawable(
-    val context: Context,
+    private val context: Context,
     private val slices: List<PieSlice>,
-    private val isCompleted: Boolean = true
+    private val isCompleted: Boolean // 👈 ahora si recibe el tipo
 ) : Drawable() {
 
     private val paintSlice = Paint().apply {
@@ -27,6 +28,9 @@ class CustomPieDrawable(
         isAntiAlias = true
     }
 
+    private val legendTextSize = 42f
+    private val legendBoxSize = 40f
+
     private var oval = RectF()
 
     override fun draw(canvas: Canvas) {
@@ -35,6 +39,7 @@ class CustomPieDrawable(
         val minSide = minOf(width, height * 0.7f)
         val radius = minSide - 40
 
+        // Pastel
         oval = RectF(
             (width - radius) / 2,
             40f,
@@ -43,38 +48,35 @@ class CustomPieDrawable(
         )
 
         var startAngle = 0f
+
         for (slice in slices) {
             paintSlice.color = slice.color
             canvas.drawArc(oval, startAngle, slice.angle, true, paintSlice)
             startAngle += slice.angle
         }
 
+        // Hoyo central
         val holeRadius = radius * 0.40f
         canvas.drawCircle(width / 2, 40f + radius / 2, holeRadius, paintHole)
 
-        val legendStartY = 60f + radius
-        val legendBoxSize = 40f
-        var currentY = legendStartY
+        // Leyendas
+        paintText.textSize = legendTextSize
+        var startY = radius + 80f
 
         for (slice in slices) {
             paintSlice.color = slice.color
-            canvas.drawRect(40f, currentY, 40f + legendBoxSize, currentY + legendBoxSize, paintSlice)
+            canvas.drawRect(40f, startY, 40f + legendBoxSize, startY + legendBoxSize, paintSlice)
 
-            val taskLabel = if (isCompleted) "Tasks Completed" else "Unfinished Tasks"
-            val labelWithCount = "${slice.label} ${slice.count} $taskLabel"
-            canvas.drawText(labelWithCount, 100f, currentY + legendBoxSize * 0.8f, paintText)
-            currentY += legendBoxSize + 20f
+            val typeText = if (isCompleted) "Tasks Completed" else "Unfinished Tasks"
+            val label = "${slice.label}  ${slice.count} $typeText"
+
+            canvas.drawText(label, 100f, startY + legendBoxSize * 0.8f, paintText)
+
+            startY += legendBoxSize + 20f
         }
     }
 
     override fun setAlpha(alpha: Int) {}
     override fun setColorFilter(colorFilter: ColorFilter?) {}
-    override fun getOpacity(): Int = PixelFormat.OPAQUE
+    override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
 }
-
-data class PieSlice(
-    val label: String,
-    val angle: Float,
-    val color: Int,
-    val count: Int
-)

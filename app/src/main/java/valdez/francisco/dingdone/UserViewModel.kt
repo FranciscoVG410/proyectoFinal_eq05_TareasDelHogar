@@ -1,30 +1,20 @@
 package valdez.francisco.dingdone
 
 import android.util.Log
-import androidx.activity.result.launch
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.Calendar
 import com.google.firebase.firestore.Query
-import com.google.firebase.firestore.QuerySnapshot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Locale
-import kotlin.io.path.exists
-import kotlin.text.any
-import kotlin.text.contains
-import kotlin.text.equals
-import kotlin.text.filter
-import kotlin.text.format
-import kotlin.text.trim
 
 class UserViewModel : ViewModel() {
 
@@ -61,7 +51,7 @@ class UserViewModel : ViewModel() {
     val currentHomeDetails: LiveData<Home?> get() = _currentHomeDetails
 
     private val _userNamesMap = MutableLiveData<Map<String, String>>(emptyMap())
-    val userNamesMap: LiveData<Map<String, String>> get() = _userNamesMap
+    val userNamesMap: LiveData<Map<String, String>> get() = _userNamesMap // Este es el LiveData clave
 
     private val _totalLifetimeCompleted = MutableLiveData<Int>()
     val totalLifetimeCompleted: LiveData<Int> get() = _totalLifetimeCompleted
@@ -73,11 +63,65 @@ class UserViewModel : ViewModel() {
     val homeMemberCount: LiveData<Int> get() = _homeMemberCount
 
 
+    // =========================================================================
+    // LÓGICA: Carga un mapa de ID de usuario -> Nombre para una casa
+    // =========================================================================
+    fun loadUserNamesMapForHome(homeId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // 1. Obtener la lista de miembros (IDs) de la casa
+                val homeDoc = db.collection("homes").document(homeId).get().await()
+
+                // CORRECCIÓN: Usar "members" en lugar de "memberIds"
+                val memberIds = homeDoc.get("members") as? List<String> ?: emptyList()
+
+                if (memberIds.isEmpty()) {
+                    withContext(Dispatchers.Main) {
+                        _userNamesMap.value = emptyMap()
+                    }
+                    return@launch
+                }
+
+                // 2. Consultar la colección de usuarios para obtener los datos de todos los miembros
+                // Nota: usamos .take(10) para evitar superar el límite de 10 elementos de Firestore en el 'whereIn'.
+                val usersSnapshot = db.collection("users")
+                    .whereIn(FieldPath.documentId(), memberIds.take(10))
+                    .get().await()
+
+                val namesMap = mutableMapOf<String, String>()
+
+                // 3. Construir el mapa de ID -> Nombre
+                usersSnapshot.documents.forEach { doc ->
+                    val userId = doc.id
+                    // Buscamos "name" o "nombre" para ser robustos.
+                    val userName = doc.getString("name") ?: doc.getString("nombre") ?: "Usuario Desconocido"
+                    namesMap[userId] = userName
+                }
+
+                // 4. Publicar el mapa en el LiveData
+                withContext(Dispatchers.Main) {
+                    _userNamesMap.value = namesMap
+                    Log.d("UserViewModel", "Mapa de nombres cargado: ${namesMap.size} usuarios")
+                }
+
+            } catch (e: Exception) {
+                Log.e("UserViewModel", "Error cargando mapa de nombres para casa $homeId", e)
+                withContext(Dispatchers.Main) {
+                    _userNamesMap.value = emptyMap()
+                }
+            }
+        }
+    }
+    // =========================================================================
+    // FIN LÓGICA DE RESOLUCIÓN DE NOMBRES
+    // =========================================================================
+
 
     fun loadHomeMembers(homeId: String) {
         db.collection("homes").document(homeId).get()
             .addOnSuccessListener { document ->
-                val memberIds = document.get("memberIds") as? List<String> ?: emptyList()
+                // CORRECCIÓN: Usar "members" en lugar de "memberIds"
+                val memberIds = document.get("members") as? List<String> ?: emptyList()
 
                 if (memberIds.isEmpty()) {
                     _homeMembers.postValue(emptyList())
@@ -92,6 +136,7 @@ class UserViewModel : ViewModel() {
                             doc.toObject(User::class.java)?.apply { id = doc.id }
                         }
                         _homeMembers.postValue(members)
+                        // Llama a la función de utilidad para actualizar el mapa de nombres
                         updateUserNamesMap(members)
                     }
                     .addOnFailureListener { e ->
@@ -108,13 +153,15 @@ class UserViewModel : ViewModel() {
     private fun updateUserNamesMap(users: List<User>) {
         val currentMap = _userNamesMap.value.orEmpty().toMutableMap()
         users.forEach { user ->
+            // Asume que la clase User tiene un campo 'name' o que 'nombre' es lo que quieres
             currentMap[user.id] = user.name
         }
         _userNamesMap.postValue(currentMap)
     }
 
     fun loadUserNamesForHome(homeId: String) {
-        loadHomeMembers(homeId)
+        // Redirigimos la llamada a la nueva función basada en coroutines para asegurar la carga
+        loadUserNamesMapForHome(homeId)
     }
 
     fun loadHomeProfileFullDetails(homeId: String) {
@@ -127,6 +174,7 @@ class UserViewModel : ViewModel() {
                     val home = document.toObject(Home::class.java)?.apply { id = document.id }
                     _currentHomeDetails.value = home
 
+                    // Asumiendo que la clase Home está bien mapeada al campo 'members'
                     val memberIds = home?.members ?: emptyList()
                     _homeMemberCount.value = memberIds.size
 
@@ -154,6 +202,8 @@ class UserViewModel : ViewModel() {
                                     doc.toObject(User::class.java)?.apply { id = doc.id }
                                 }
                                 _homeMembers.value = membersList
+                                // Carga el mapa de nombres aquí también
+                                updateUserNamesMap(membersList)
                             }
                     } else {
                         _homeMembers.value = emptyList()
@@ -336,39 +386,215 @@ class UserViewModel : ViewModel() {
         }
     }
 
+    private val firebaseDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    fun parseHistoryDate(dateStr: String): Long? = try {
+        firebaseDateFormat.parse(dateStr)?.time
+    } catch (e: Exception) {
+        null
+    }
+
+    // Funciones de utilidad para el progreso (mantengo las que enviaste)
+    private fun getTodayDateCode(): String {
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        return sdf.format(Calendar.getInstance().time)
+    }
+
+    private fun getMonthCode(): String {
+        val sdf = SimpleDateFormat("yyyy-MM", Locale.getDefault())
+        return sdf.format(Calendar.getInstance().time)
+    }
+
+    private fun getStartTime(currentTime: Long, period: PeriodType): Long {
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = currentTime
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        when (period) {
+            PeriodType.DAILY -> Unit
+            PeriodType.WEEKLY -> {
+                val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+
+                // Ajusta para que lunes sea el día 2 independientemente de localización
+                val diff = if (dayOfWeek == Calendar.SUNDAY) {
+                    -6   // domingo → restar 6 días para ir al lunes pasado
+                } else {
+                    Calendar.MONDAY - dayOfWeek
+                }
+
+                calendar.add(Calendar.DAY_OF_MONTH, diff)
+            }
+            PeriodType.MONTHLY -> {
+                calendar.set(Calendar.DAY_OF_MONTH, 1)
+            }
+        }
+
+        return calendar.timeInMillis
+    }
+
+    private fun getEndTime(startTime: Long, period: PeriodType): Long {
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = startTime
+        }
+
+        when (period) {
+            PeriodType.DAILY -> {
+                calendar.add(Calendar.DAY_OF_YEAR, 1) // mañana 00:00
+            }
+            PeriodType.WEEKLY -> {
+                calendar.add(Calendar.WEEK_OF_YEAR, 1) // siguiente lunes 00:00
+            }
+            PeriodType.MONTHLY -> {
+                calendar.add(Calendar.MONTH, 1) // primer día del siguiente mes 00:00
+            }
+        }
+
+        // Regresamos 1 ms para incluir todo el último día
+        return calendar.timeInMillis - 1
+    }
+
     fun loadCompletedTasksForHome(homeId: String, period: PeriodType) {
         if (homeId.isEmpty()) {
             _completedTasksData.postValue(emptyList())
             return
         }
 
-        val startTime = getStartTime(System.currentTimeMillis(), period)
+        val now = System.currentTimeMillis()
+        val startTime = getStartTime(now, period)
+        val endTime = getEndTime(startTime, period)
 
-        loadHomeMembers(homeId) { membersMap ->
-            db.collection("homes")
-                .document(homeId)
-                .collection("tasks")
-                .whereEqualTo("state", "Completada")
+        val memberNameCache = mutableMapOf<String, String>()
+
+        fun getMemberName(memberId: String, onResult: (String) -> Unit) {
+            // 1) Revisa caché primero
+            memberNameCache[memberId]?.let {
+                onResult(it)
+                return
+            }
+
+            // 2) Consulta en Firestore
+            db.collection("users")
+                .document(memberId)
                 .get()
-                .addOnSuccessListener { snapshot ->
-                    val completedTasks = snapshot.documents.mapNotNull { doc ->
-                        val task = doc.toObject(Task::class.java)?.apply { id = doc.id }
-                        if (task?.completionDate != null && task.completionDate!! >= startTime) task else null
-                    }
-
-                    completedTasks.forEach { task ->
-                        task.member = task.member.map { memberId -> membersMap[memberId] ?: "USUARIO DESCONOCIDO" }
-                    }
-
-                    _completedTasksData.postValue(completedTasks)
+                .addOnSuccessListener { snap ->
+                    val name = snap.getString("name") ?: memberId
+                    memberNameCache[memberId] = name
+                    onResult(name)
                 }
-                .addOnFailureListener { e ->
-                    Log.e("UserViewModel", "Error cargando completadas $homeId: $e")
-                    _completedTasksData.postValue(emptyList())
+                .addOnFailureListener {
+                    onResult(memberId) // fallback: regresa el id si falla
                 }
         }
+
+        db.collection("homes")
+            .document(homeId)
+            .collection("tasks")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val tasks = snapshot.toObjects(Task::class.java)
+
+                val completedTasksForChart = mutableListOf<Task>()
+                var processedTasks = 0
+
+                if (tasks.isEmpty()) {
+                    _completedTasksData.postValue(emptyList())
+                    return@addOnSuccessListener
+                }
+
+                tasks.forEach { task ->
+                    db.collection("homes").document(homeId)
+                        .collection("tasks").document(task.id)
+                        .collection("history")
+                        .whereEqualTo("status", "Completada")
+                        .get()
+                        .addOnSuccessListener { historySnap ->
+
+                            val historyDocs = historySnap.documents
+                            if (historyDocs.isEmpty()) {
+                                processedTasks++
+                                if (processedTasks == tasks.size) {
+                                    _completedTasksData.postValue(completedTasksForChart)
+                                }
+                                return@addOnSuccessListener
+                            }
+
+                            var processedHistory = 0
+                            historyDocs.forEach { entry ->
+                                val completedAtStr = entry.getString("completedAt")
+                                val completedById = entry.getString("completedBy")
+
+                                if (completedAtStr != null && completedById != null) {
+                                    val completedAt = parseHistoryDate(completedAtStr) // Long?
+
+                                    // 🔹 FILTRO POR PERIODO (daily/weekly/monthly)
+                                    if (completedAt != null &&
+                                        completedAt in startTime..endTime
+                                    ) {
+                                        // Aquí convertimos ID → nombre
+                                        getMemberName(completedById) { memberName ->
+                                            val taskClone = task.copy(
+                                                state = "Completada",
+                                                // ahora member lleva el nombre
+                                                member = listOf(memberName)
+                                            )
+                                            completedTasksForChart.add(taskClone)
+
+                                            processedHistory++
+                                            if (processedHistory == historyDocs.size) {
+                                                processedTasks++
+                                                if (processedTasks == tasks.size) {
+                                                    _completedTasksData.postValue(
+                                                        completedTasksForChart
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        processedHistory++
+                                        if (processedHistory == historyDocs.size) {
+                                            processedTasks++
+                                            if (processedTasks == tasks.size) {
+                                                _completedTasksData.postValue(
+                                                    completedTasksForChart
+                                                )
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    processedHistory++
+                                    if (processedHistory == historyDocs.size) {
+                                        processedTasks++
+                                        if (processedTasks == tasks.size) {
+                                            _completedTasksData.postValue(
+                                                completedTasksForChart
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("UVM", "Error cargando historial de tarea ${task.id}: $e")
+                            processedTasks++
+                            if (processedTasks == tasks.size) {
+                                _completedTasksData.postValue(completedTasksForChart)
+                            }
+                        }
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e("UVM", "Error cargando tareas para completed: $e")
+                _completedTasksData.postValue(emptyList())
+            }
     }
 
+    /**
+     * Carga tareas que *no fueron completadas* en el período.
+     * Asigna crédito de "pendiente" a *todos* los usuarios en assignedTo.
+     */
     fun loadUnfinishedTasksForHome(homeId: String, period: PeriodType) {
         if (homeId.isEmpty()) {
             _unfinishedTasksData.postValue(emptyList())
@@ -377,103 +603,79 @@ class UserViewModel : ViewModel() {
 
         val startTime = getStartTime(System.currentTimeMillis(), period)
 
-        loadHomeMembers(homeId) { membersMap ->
-            db.collection("homes")
-                .document(homeId)
-                .collection("tasks")
-                .whereEqualTo("state", "Pendiente")
-                .get()
-                .addOnSuccessListener { snapshot ->
-                    val unfinishedTasks = snapshot.documents.mapNotNull { doc ->
-                        doc.toObject(Task::class.java)?.apply { id = doc.id }
-                    }
+        db.collection("homes")
+            .document(homeId)
+            .collection("tasks")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val tasks = snapshot.toObjects(Task::class.java)
 
-                    unfinishedTasks.forEach { task ->
-                        task.member = task.member.map { memberId -> membersMap[memberId] ?: "USUARIO DESCONOCIDO" }
-                    }
+                val unfinishedTasksForChart = mutableListOf<Task>()
+                var processed = 0
 
-                    _unfinishedTasksData.postValue(unfinishedTasks)
-                }
-                .addOnFailureListener { e ->
-                    Log.e("UserViewModel", "Error cargando pendientes $homeId: $e")
+                if (tasks.isEmpty()) {
                     _unfinishedTasksData.postValue(emptyList())
+                    return@addOnSuccessListener
                 }
-        }
-    }
 
-    fun loadHomeMembers(homeId: String, callback: (Map<String, String>) -> Unit) {
+                tasks.forEach { task ->
+                    db.collection("homes").document(homeId)
+                        .collection("tasks").document(task.id)
+                        .collection("history")
+                        .whereEqualTo("status", "Completada")
+                        .get()
+                        .addOnSuccessListener { historySnap ->
 
-        db.collection("homes").document(homeId).get()
-            .addOnSuccessListener { document ->
-                if (document.exists()) {
-
-                    val home = document.toObject(Home::class.java)
-                    val members = home?.members ?: emptyList()
-                    _homeMemberCount.value = members.size
-                    val ownerId = home?.ownerId ?: ""
-
-                    if (ownerId.isNotEmpty()) {
-
-                        db.collection("users").document(ownerId).get()
-                            .addOnSuccessListener { userDoc ->
-
-                                val ownerName = userDoc.getString("name") ?: "Desconocido"
-                                _homeOwnerName.value = ownerName
-
+                            // 1. Comprobar si *EXISTE* algún registro 'Completada' en el período actual.
+                            val hasCompletedThisPeriod = historySnap.documents.any { entry ->
+                                val completedAtStr = entry.getString("completedAt")
+                                val completedAt = completedAtStr?.let { parseHistoryDate(it) }
+                                completedAt != null && completedAt >= startTime
                             }
-                            .addOnFailureListener {
 
-                                _homeOwnerName.value = "Error al cargar"
+                            if (!hasCompletedThisPeriod) {
+                                // 2. Si NO se ha completado en el período: se considera pendiente.
 
+                                // 3. ¡CRÍTICO! Asignar el crédito de "pendiente" a todos los usuarios asignados
+                                task.assignedTo.forEach { userId ->
+                                    val taskClone = task.copy(
+                                        state = "Pendiente",
+                                        // Asignamos el ID del asignado al campo 'member' para el conteo de la gráfica
+                                        member = listOf(userId)
+                                    )
+                                    unfinishedTasksForChart.add(taskClone)
+                                }
                             }
-                    } else {
 
-                        _homeOwnerName.value = "Sin dueño"
-
-                    }
+                            processed++
+                            if (processed == tasks.size) {
+                                // 4. Finalizar y publicar la lista de tareas (una entrada por cada asignación pendiente)
+                                _unfinishedTasksData.postValue(unfinishedTasksForChart)
+                            }
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("UVM", "Error cargando historial para chequeo de pendiente ${task.id}: $e")
+                            processed++
+                            if (processed == tasks.size) {
+                                _unfinishedTasksData.postValue(unfinishedTasksForChart)
+                            }
+                        }
                 }
             }
-            .addOnFailureListener {
-
-                _homeMemberCount.value = 0
-                _homeOwnerName.value = "Error"
-
+            .addOnFailureListener { e ->
+                Log.e("UVM", "Error cargando tareas para unfinished: $e")
+                _unfinishedTasksData.postValue(emptyList())
             }
-
     }
 
-
-
-    private fun getStartTime(currentTime: Long, period: PeriodType): Long {
-        val calendar = Calendar.getInstance().apply {
-            timeInMillis = currentTime
-
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-
-        when (period) {
-            PeriodType.DAILY -> {
-
-            }
-            PeriodType.WEEKLY -> {
-                calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-            }
-            PeriodType.MONTHLY -> {
-                calendar.set(Calendar.DAY_OF_MONTH, 1)
-            }
-        }
-        return calendar.timeInMillis
-    }
 
     fun loadUserAssignedTasksProgress(userId: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
 
                 val userDoc = db.collection("users").document(userId).get().await()
-                val userName = userDoc.getString("name")?.trim() ?: ""
+                // La variable userName no se usa después de la inicialización, se puede omitir o mantener.
+                // val userName = userDoc.getString("name")?.trim() ?: ""
 
                 val homesSnapshot = db.collection("homes")
                     .whereArrayContains("members", userId)
@@ -489,7 +691,7 @@ class UserViewModel : ViewModel() {
 
                     val tasksSnapshot = db.collection("homes").document(homeId)
                         .collection("tasks")
-                         .get().await()
+                        .get().await()
 
                     val allTasks = tasksSnapshot.toObjects(Task::class.java)
                     val myTasks = allTasks.filter { task ->
@@ -512,6 +714,7 @@ class UserViewModel : ViewModel() {
 
                                 totalExpectedThisWeek++
 
+                                // Se accede directamente al documento de historial usando el dateCode (ej: "2025-11-30")
                                 val historySnap = db.collection("homes").document(homeId)
                                     .collection("tasks").document(task.id)
                                     .collection("history").document(dateCode)
