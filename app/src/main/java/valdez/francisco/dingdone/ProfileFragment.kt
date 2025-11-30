@@ -13,6 +13,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -24,6 +25,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import android.widget.ImageView
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 
 class ProfileFragment : Fragment() {
@@ -43,6 +47,10 @@ class ProfileFragment : Fragment() {
     private lateinit var ivTasksExpand: ImageView
     private lateinit var rvUserTasks: RecyclerView
     private lateinit var tasksAdapter: TaskDateAdapterNew
+    private lateinit var btnEditarNombe: ImageButton
+    private lateinit var btnEditarProfileImage: ImageButton
+    private lateinit var ll_congrats: LinearLayout
+
     private var isTasksExpanded = true
 
     private lateinit var layoutSuccess: View
@@ -76,6 +84,18 @@ class ProfileFragment : Fragment() {
         llTasksHeader = view.findViewById(R.id.ll_tasksHeader)
         ivTasksExpand = view.findViewById(R.id.iv_tasksExpand)
         rvUserTasks = view.findViewById(R.id.rv_userTasks)
+        ll_congrats = view.findViewById(R.id.ll_congrats)
+
+        btnEditarNombe = view.findViewById(R.id.btn_editName)
+        btnEditarProfileImage = view.findViewById(R.id.btn_editAvatar)
+
+        btnEditarNombe.setOnClickListener{
+
+            showEditNameDialog()
+
+        }
+
+        ll_congrats.visibility = View.GONE
 
         rvUserTasks.layoutManager = LinearLayoutManager(requireContext())
         tasksAdapter = TaskDateAdapterNew(emptyList(), "")
@@ -85,6 +105,7 @@ class ProfileFragment : Fragment() {
         layoutSuccess = inflate.inflate(R.layout.custome_toast_success, null)
         textSuccess = layoutSuccess.findViewById(R.id.txtTextToastS)
         toast = Toast(context)
+
 
         setupObservers()
         setupTasksCollapse()
@@ -104,20 +125,106 @@ class ProfileFragment : Fragment() {
         return null
     }
 
+    private fun showEditNameDialog() {
+        val context = requireContext()
+        val builder = android.app.AlertDialog.Builder(context)
+
+        val dialogLayout = LinearLayout(context)
+        dialogLayout.orientation = LinearLayout.VERTICAL
+        dialogLayout.setPadding(50, 40, 50, 10)
+
+        val input = android.widget.EditText(context)
+        input.hint = "Nuevo nombre"
+        input.setText(tvCompleteName.text.toString())
+        dialogLayout.addView(input)
+
+        builder.setView(dialogLayout)
+        builder.setTitle("Editar Nombre")
+
+        builder.setPositiveButton("Guardar") { dialog, _ ->
+
+            val newName = input.text.toString().trim()
+            if (newName.isNotEmpty()) {
+
+                updateUserName(newName)
+
+            } else {
+
+                Toast.makeText(context, "El nombre no puede estar vacío", Toast.LENGTH_SHORT).show()
+
+            }
+
+            dialog.dismiss()
+
+        }
+
+        builder.setNegativeButton("Cancelar") { dialog, _ ->
+
+            dialog.cancel()
+
+        }
+
+        builder.show()
+
+    }
+
+    private fun updateUserName(newName: String) {
+
+        val uid = currentUserId
+        if (uid != null) {
+
+            db.collection("users").document(uid)
+                .update("name", newName)
+                .addOnSuccessListener {
+
+                    tvCompleteName.text = newName
+
+                    textSuccess.text = "Nombre actualizado correctamente"
+                    toast.duration = Toast.LENGTH_SHORT
+                    toast.view = layoutSuccess
+                    toast.show()
+                    uvm.loadUserTasksGroupedByHome(uid)
+
+                }
+                .addOnFailureListener {
+
+                    Toast.makeText(context, "Error al actualizar nombre", Toast.LENGTH_SHORT).show()
+
+                }
+
+        }
+
+    }
+
+
     private fun setupObservers(){
 
         uvm.userTaskProgress.observe(viewLifecycleOwner){ progress ->
 
-            progressBar.progress = progress.progressPercentage
+            progressBar.max = 100
+            progressBar.setProgress(progress.progressPercentage, true)
             if(progress.totalTasks == 0){
 
-                tvProgressStatus.text = "Sin tareas asignadas"
+                tvProgressStatus.text = "Sin tareas para esta semana"
+                ll_congrats.visibility = View.GONE
 
-            }else{
+            }else if(progress.progressPercentage == 100){
 
                 tvProgressStatus.text = "${progress.completedTasks}/${progress.totalTasks} hechas (${progress.progressPercentage}%)"
+                ll_congrats.visibility = View.VISIBLE
+
+            }else {
+
+                tvProgressStatus.text = "${progress.completedTasks}/${progress.totalTasks} hechas (${progress.progressPercentage}%)"
+                ll_congrats.visibility = View.GONE
 
             }
+
+        }
+
+        uvm.totalLifetimeCompleted.observe(viewLifecycleOwner){ totalCount ->
+
+            tvNumberCompletedTasks.text = totalCount.toString()
 
         }
 
@@ -166,49 +273,99 @@ class ProfileFragment : Fragment() {
                     tvCompleteName.text = "Error"
                 }
             uvm.loadUserAssignedTasksProgress(uid)
-            uvm.loadUserTasksGroupedByHome(uid)
             uvm.loadUserHomes(uid)
+            uvm.loadUserTasksGroupedByHome(uid)
+            uvm.loadTotalCompletedTasks(uid)
+
         } else {
         }
     }
 
     private fun displayUserTasksByHome(homeTasksPairs: List<Pair<Home, List<Task>>>) {
-        val items = mutableListOf<TaskListItem>()
-        val weekDays = listOf("Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo")
 
-        var hasAnyTasks = false
+        val allItems = mutableListOf<TaskListItem>()
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+
+        val currentUserName = tvCompleteName.text.toString().trim()
+
+        val dayMap = mapOf(
+
+            Calendar.MONDAY to "Lunes",
+            Calendar.TUESDAY to "Martes",
+            Calendar.WEDNESDAY to "Miercoles",
+            Calendar.THURSDAY to "Jueves",
+            Calendar.FRIDAY to "Viernes",
+            Calendar.SATURDAY to "Sabado",
+            Calendar.SUNDAY to "Domingo"
+
+        )
+
+        android.util.Log.d("ProfileDebug", "Buscando tareas para el nombre: '$currentUserName'")
 
         homeTasksPairs.forEach { (home, tasks) ->
-            val pendingTasks = tasks.filter { it.state != "Completada" }
 
-            if (pendingTasks.isNotEmpty()) {
-                hasAnyTasks = true
-                items.add(TaskListItem.HomeHeader(home.name))
+            val myTasks = tasks.filter { task ->
 
-                val groupedByDay = mutableMapOf<String, MutableList<Task>>()
-                pendingTasks.forEach { task ->
-                    task.date.forEach { day ->
-                        groupedByDay.getOrPut(day) { mutableListOf() }.add(task)
+                task.assignedTo.contains(currentUserId)
+
+            }
+
+            if (myTasks.isNotEmpty()) {
+                val itemsForThisHome = mutableListOf<TaskListItem>()
+                val loopCalendar = Calendar.getInstance()
+
+                for (i in 0..6) {
+                    val currentDayInt = loopCalendar.get(Calendar.DAY_OF_WEEK)
+                    val currentDayString = dayMap[currentDayInt] ?: ""
+                    val currentDateCode = dateFormat.format(loopCalendar.time)
+
+                    val tasksForDay = myTasks.filter { task ->
+
+                        task.date.any { diaGuardado ->
+
+                            diaGuardado.equals(currentDayString, ignoreCase = true)
+
+                        }
                     }
+
+                    if (tasksForDay.isNotEmpty()) {
+
+
+                        itemsForThisHome.add(TaskListItem.Header(currentDayString))
+                        itemsForThisHome.addAll(tasksForDay.map {
+                            TaskListItem.TaskItem(it, home.id, currentDateCode)
+
+                        })
+
+                    }
+
+                    loopCalendar.add(Calendar.DAY_OF_YEAR, 1)
+
                 }
 
-                weekDays.forEach { day ->
-                    val dayTasks = groupedByDay[day]
-                    if (!dayTasks.isNullOrEmpty()) {
-                        items.add(TaskListItem.Header(day))
-                        items.addAll(dayTasks.map { TaskListItem.TaskItem(it, home.id) })
-                    }
+                if (itemsForThisHome.isNotEmpty()) {
+
+                    allItems.add(TaskListItem.HomeHeader(home.name))
+                    allItems.addAll(itemsForThisHome)
+
                 }
             }
         }
 
-        if (hasAnyTasks) {
+        if (allItems.isNotEmpty()) {
+
             llTasksSection.visibility = View.VISIBLE
-            tasksAdapter.updateItem(items)
+            tasksAdapter.updateItem(allItems)
+
         } else {
+
             llTasksSection.visibility = View.GONE
+
         }
     }
+
+
+
 
     private fun displayUserHomes(allHomes: List<Home>, currentUserId: String) {
         llHousesContainer.removeAllViews()
@@ -304,7 +461,7 @@ class ProfileFragment : Fragment() {
             )
         }
 
-        if (isOwner) {
+//        if (isOwner) {
             val copyButton = Button(requireContext()).apply {
                 text = "Copy"
                 textSize = 12f
@@ -333,9 +490,9 @@ class ProfileFragment : Fragment() {
             }
             houseLayout.addView(houseInfoText)
             houseLayout.addView(copyButton)
-        } else {
-            houseLayout.addView(houseInfoText)
-        }
+//        } else {
+//            houseLayout.addView(houseInfoText)
+//        }
 
         llHousesContainer.addView(houseLayout)
     }

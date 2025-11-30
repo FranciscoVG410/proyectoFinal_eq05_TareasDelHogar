@@ -147,6 +147,37 @@
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
+            <LinearLayout
+                android:id="@+id/ll_congrats"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/contorno"
+                android:padding="6dp"
+                android:visibility="gone"
+                >
+
+                <TextView
+                    android:id="@+id/tvCongratulations"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="¡Felicidades! 🎉"
+                    android:textSize="32sp"
+                    android:textStyle="bold"
+                    android:textColor="#FF6B35"
+                    android:gravity="center"/>
+
+                <TextView
+                    android:id="@+id/tvSubtitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="¡¡Haz terminado todas tus tareas!!"
+                    android:textSize="18sp"
+                    android:textColor="#555555"
+                    android:gravity="center"/>
+
+            </LinearLayout>
+
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -164,7 +195,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Current Assignments"
+                        android:text="Current Assignments (week)"
                         android:textStyle="bold"
                         android:textColor="#444"
                         android:textSize="14sp"/>

@@ -16,6 +16,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -54,8 +55,11 @@ class TaskDetailFragment : Fragment() {
         val nombre = arguments?.getString("nombre")
         val descripcion = arguments?.getString("descripcion")
         var estado = arguments?.getString("estado")
+        var assignedTo = arguments?.getStringArrayList("assignedTo") ?: arrayListOf()
         val miembros = arguments?.getStringArrayList("miembros") ?: arrayListOf()
         val editableBy = arguments?.getStringArrayList("editableBy") ?: arrayListOf()
+        val selectedDateArg = arguments?.getString("selectedDate")
+        val targetDate = if(!selectedDateArg.isNullOrEmpty()) selectedDateArg else getTodayDateString()
 
         val tvNombre: TextView = view.findViewById(R.id.tvTituloDetail)
         val tvDescripcion: TextView = view.findViewById(R.id.tvDescripcionDetal)
@@ -70,6 +74,7 @@ class TaskDetailFragment : Fragment() {
         tvDescripcion.text = descripcion
 
         btnChangeState.text = estado
+
         if (estado == "Completada") {
             btnChangeState.setBackgroundResource(R.drawable.item_completed)
         } else {
@@ -84,22 +89,21 @@ class TaskDetailFragment : Fragment() {
                 .addOnSuccessListener { userDoc ->
                     currentUserName = userDoc.getString("name") ?: ""
 
+
                     db.collection("homes").document(homeId)
                         .get()
                         .addOnSuccessListener { homeDoc ->
                             homeOwnerId = homeDoc.getString("ownerId") ?: ""
+                            var membersCanEdit = homeDoc.getBoolean("membersCanEdit") ?: true
 
                             canEdit = currentUserId == homeOwnerId ||
-                                    editableBy.contains(currentUserName)
+                                    membersCanEdit || currentUserName in miembros
 
                             btnChangeState.isEnabled = canEdit
                             btnChangeState.alpha = if (canEdit) 1f else 0.5f
 
                             btnEditTask.visibility = if (canEdit) View.VISIBLE else View.GONE
 
-                            if (currentUserId == homeOwnerId) {
-                                showEditPermissionsUI(view, miembros, editableBy, homeId, taskId)
-                            }
                         }
                 }
         }
@@ -126,71 +130,79 @@ class TaskDetailFragment : Fragment() {
         }
 
         btnChangeState.setOnClickListener {
-            if (!canEdit) {
-                Toast.makeText(requireContext(), "No tienes permiso", Toast.LENGTH_SHORT).show()
+
+            if(btnChangeState.text.toString() == "Completeada"){
+
+                Toast.makeText(requireContext(), "Esta tarea ya fue finalizada.", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
+
             }
 
-            val historyRef = db.collection("homes").document(homeId)
-                .collection("tasks").document(taskId)
-                .collection("history").document(todayDate)
+            if(homeOwnerId == currentUserId || currentUserName in miembros || currentUserId in assignedTo){
 
-            val taskRef = db.collection("homes").document(homeId)
-                .collection("tasks").document(taskId)
+                val historyRef = db.collection("homes").document(homeId)
+                    .collection("tasks").document(taskId)
+                    .collection("history").document(targetDate)
 
-            val currentState = btnChangeState.text.toString()
-
-            if (currentState == "Pendiente") {
-                val completionTime = System.currentTimeMillis()
+//                val isCurrentlyCompleted = btnChangeState.text.toString() == "Completada"
 
                 val data = hashMapOf(
                     "completedBy" to currentUserId,
-                    "completedAt" to Timestamp.now(),
-                    "status" to "Completada"
+                    "completedAt" to targetDate,
+                    "status" to "Completada",
+                    "dateId" to targetDate
                 )
 
-                historyRef.set(data)
-                    .addOnSuccessListener {
-                        val updates = hashMapOf<String, Any>(
-                            "state" to "Completada",
-                            "completionDate" to completionTime
-                        )
+                historyRef.set(data).addOnSuccessListener {
 
-                        taskRef.update(updates)
-                            .addOnSuccessListener {
-                                btnChangeState.text = "Completada"
-                                btnChangeState.setBackgroundResource(R.drawable.item_completed)
-                                Toast.makeText(requireContext(), "Tarea completada", Toast.LENGTH_SHORT).show()
-                            }
-                            .addOnFailureListener { e ->
-                                Toast.makeText(requireContext(), "Error actualizando estado: $e", Toast.LENGTH_SHORT).show()
-                            }
-                    }
-                    .addOnFailureListener { e ->
-                        Toast.makeText(requireContext(), "Error registrando historial: $e", Toast.LENGTH_SHORT).show()
-                    }
+                    btnChangeState.text = "Completada"
+                    btnChangeState.setBackgroundResource(R.drawable.item_completed)
 
-            } else {
-                historyRef.delete()
-                    .addOnSuccessListener {
-                        val updates = hashMapOf<String, Any?>(
-                            "state" to "Pendiente",
-                            "completionDate" to null
-                        )
-                        taskRef.update(updates)
-                            .addOnSuccessListener {
-                                btnChangeState.text = "Pendiente"
-                                btnChangeState.setBackgroundResource(R.drawable.item_pending)
-                                Toast.makeText(requireContext(), "Tarea pendiente", Toast.LENGTH_SHORT).show()
-                            }
-                            .addOnFailureListener { e ->
-                                Toast.makeText(requireContext(), "Error actualizando estado: $e", Toast.LENGTH_SHORT).show()
-                            }
-                    }
-                    .addOnFailureListener { e ->
-                        Toast.makeText(requireContext(), "Error borrando historial: $e", Toast.LENGTH_SHORT).show()
-                    }
+                    textSuccess.text = "Tarea completada con éxito"
+                    toast.duration = Toast.LENGTH_SHORT
+                    toast.view = layoutSucces
+                    toast.show()
+
+                }.addOnFailureListener { e ->
+
+                    textFail.text = "Error: ${e.message}"
+                    toast.duration = Toast.LENGTH_SHORT
+                    toast.view = layoutFail
+                    toast.show()
+
+                }
+
+            }else {
+
+                Toast.makeText(requireContext(), "No tienes permiso", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+
             }
+
+        }
+
+        val historyCheckRef = db.collection("homes").document(homeId)
+            .collection("tasks").document(taskId)
+            .collection("history").document(targetDate)
+
+        historyCheckRef.get().addOnSuccessListener { doc ->
+
+            if(doc.exists() && doc.getString("status") == "Completada"){
+
+                btnChangeState.text = "Completada"
+                btnChangeState.setBackgroundResource(R.drawable.item_completed)
+                btnChangeState.isEnabled = false
+                btnChangeState.alpha = 0.5f
+
+            }else {
+
+                btnChangeState.text = "Pendiente"
+                btnChangeState.setBackgroundResource(R.drawable.item_pending)
+                btnChangeState.isEnabled = true
+                btnChangeState.alpha = 1f
+
+            }
+
         }
 
         btnReturn.setOnClickListener {
@@ -223,56 +235,56 @@ class TaskDetailFragment : Fragment() {
         return sdf.format(Date())
     }
 
-    private fun showEditPermissionsUI(
-        view: View,
-        miembros: ArrayList<String>,
-        editableBy: ArrayList<String>,
-        homeId: String,
-        taskId: String
-    ) {
-        val mainLayout = view.findViewById<LinearLayout>(R.id.main)
-
-        val permissionsSection = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(40, 20, 40, 20)
-        }
-
-        val title = TextView(requireContext()).apply {
-            text = "Members can edit:"
-            textSize = 16f
-            setTextColor(ContextCompat.getColor(requireContext(), R.color.black))
-        }
-        permissionsSection.addView(title)
-
-        val checkboxes = mutableListOf<Pair<CheckBox, String>>()
-        miembros.forEach { member ->
-            val chk = CheckBox(requireContext()).apply {
-                text = member
-                isChecked = editableBy.contains(member)
-            }
-            permissionsSection.addView(chk)
-            checkboxes.add(Pair(chk, member))
-        }
-
-        val btnSave = Button(requireContext()).apply {
-            text = "Save"
-            setBackgroundResource(R.drawable.button_enabled)
-            setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-        }
-
-        btnSave.setOnClickListener {
-            val nuevos = checkboxes.filter { it.first.isChecked }.map { it.second }
-
-            taskViewModel.updateEditableMembers(homeId, taskId, nuevos) { ok ->
-                Toast.makeText(
-                    requireContext(),
-                    if (ok) "Updated" else "ERROR TO UPDATE",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
-
-        permissionsSection.addView(btnSave)
-        mainLayout.addView(permissionsSection, mainLayout.childCount)
-    }
+//    private fun showEditPermissionsUI(
+//        view: View,
+//        miembros: ArrayList<String>,
+//        editableBy: ArrayList<String>,
+//        homeId: String,
+//        taskId: String
+//    ) {
+//        val mainLayout = view.findViewById<LinearLayout>(R.id.main)
+//
+//        val permissionsSection = LinearLayout(requireContext()).apply {
+//            orientation = LinearLayout.VERTICAL
+//            setPadding(40, 20, 40, 20)
+//        }
+//
+//        val title = TextView(requireContext()).apply {
+//            text = "Members can edit:"
+//            textSize = 16f
+//            setTextColor(ContextCompat.getColor(requireContext(), R.color.black))
+//        }
+//        permissionsSection.addView(title)
+//
+//        val checkboxes = mutableListOf<Pair<CheckBox, String>>()
+//        miembros.forEach { member ->
+//            val chk = CheckBox(requireContext()).apply {
+//                text = member
+//                isChecked = editableBy.contains(member)
+//            }
+//            permissionsSection.addView(chk)
+//            checkboxes.add(Pair(chk, member))
+//        }
+//
+//        val btnSave = Button(requireContext()).apply {
+//            text = "Save"
+//            setBackgroundResource(R.drawable.button_enabled)
+//            setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
+//        }
+//
+//        btnSave.setOnClickListener {
+//            val nuevos = checkboxes.filter { it.first.isChecked }.map { it.second }
+//
+//            taskViewModel.updateEditableMembers(homeId, taskId, nuevos) { ok ->
+//                Toast.makeText(
+//                    requireContext(),
+//                    if (ok) "Updated" else "ERROR TO UPDATE",
+//                    Toast.LENGTH_SHORT
+//                ).show()
+//            }
+//        }
+//
+//        permissionsSection.addView(btnSave)
+//        mainLayout.addView(permissionsSection, mainLayout.childCount)
+//    }
 }

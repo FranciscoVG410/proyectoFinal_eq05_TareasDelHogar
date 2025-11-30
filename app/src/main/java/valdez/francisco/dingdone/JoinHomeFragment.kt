@@ -101,45 +101,22 @@ class JoinHomeFragment : Fragment() {
     private fun updateUserAndHome(userId: String, homeId: String, homeRef: com.google.firebase.firestore.DocumentReference) {
 
         val userRef = db.collection("users").document(userId)
-        val userHomeCollection = db.collection("user_home")
-
-        val userHomeData = hashMapOf(
-            "userId" to userId,
-            "homeId" to homeId,
-            "role" to "member",
-            "joinedAt" to FieldValue.serverTimestamp()
-        )
 
         db.runTransaction { transaction ->
             transaction.update(homeRef, "members", FieldValue.arrayUnion(userId))
             transaction.update(userRef, "homes", FieldValue.arrayUnion(homeId))
             null
         }.addOnSuccessListener {
-            userHomeCollection.add(userHomeData)
-                .addOnSuccessListener {
 
-                    Log.d("JoinHome", "Usuario $userId succesfully joined in the Home $homeId")
-                    Toast.makeText(requireContext(), "Welcome to your new Home", Toast.LENGTH_LONG).show()
+            Log.d("JoinHome", "Usuario $userId succesfully joined in the Home $homeId")
+            Toast.makeText(requireContext(), "Welcome to your new Home", Toast.LENGTH_LONG).show()
 
-                    homeShareViewModel.selectHome(homeId)
+            homeShareViewModel.selectHome(homeId)
 
-                    parentFragmentManager.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
-                    parentFragmentManager.beginTransaction()
-                        .replace(R.id.fragment_container, TasksFragmentNew())
-                        .commit()
-
-                }
-                .addOnFailureListener { e ->
-                    Log.w("JoinHome", "WARNING: failed to create a user_home: ${e.message}")
-                    Toast.makeText(requireContext(), "Succesfull join but there was a mistake", Toast.LENGTH_LONG).show()
-
-                    homeShareViewModel.selectHome(homeId)
-
-                    parentFragmentManager.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
-                    parentFragmentManager.beginTransaction()
-                        .replace(R.id.fragment_container, TasksFragmentNew())
-                        .commit()
-                }
+            parentFragmentManager.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, TasksFragmentNew())
+                .commit()
 
         }.addOnFailureListener { e ->
             Log.e("JoinHome", "Transaction failed: ${e.message}", e)

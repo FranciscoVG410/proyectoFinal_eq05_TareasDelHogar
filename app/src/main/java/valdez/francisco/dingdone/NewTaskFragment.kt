@@ -21,6 +21,7 @@ class NewTaskFragment : Fragment() {
     private lateinit var memberSpinner: Spinner
     private lateinit var chipsContainer: LinearLayout
     private lateinit var dayButtons: List<Button>
+    private lateinit var btnBack: Button
 
     private val userList = mutableListOf<UserData>()
     private val selectedDays = mutableSetOf<String>()
@@ -73,6 +74,7 @@ class NewTaskFragment : Fragment() {
         saveButton = view.findViewById(R.id.saveButton)
         memberSpinner = view.findViewById(R.id.memberSpinner)
         chipsContainer = view.findViewById(R.id.chipsContainer)
+        btnBack = view.findViewById(R.id.backButton)
 
         mode = arguments?.getString("mode") ?: "create"
         taskId = arguments?.getString("taskId")
@@ -82,6 +84,7 @@ class NewTaskFragment : Fragment() {
 
         val backButtonHeader: ImageButton = view.findViewById(R.id.backButtonHeader)
         backButtonHeader.setOnClickListener { parentFragmentManager.popBackStack() }
+        btnBack.setOnClickListener{parentFragmentManager.popBackStack()}
 
         loadHouseMembers()
         configureDays()
