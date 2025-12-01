@@ -4,10 +4,14 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
 import android.text.SpannableString
 import android.text.style.StyleSpan
+import android.util.Base64
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
@@ -18,13 +22,17 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
+import coil.transform.CircleCropTransformation
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import android.widget.ImageView
+import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -50,6 +58,7 @@ class ProfileFragment : Fragment() {
     private lateinit var btnEditarNombe: ImageButton
     private lateinit var btnEditarProfileImage: ImageButton
     private lateinit var ll_congrats: LinearLayout
+    private lateinit var ivProfileAvatar: ImageView
 
     private var isTasksExpanded = true
 
@@ -62,6 +71,12 @@ class ProfileFragment : Fragment() {
     private val db = FirebaseFirestore.getInstance()
     private val currentUserId: String?
         get() = auth.currentUser?.uid
+
+    private val imagePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { uploadProfileImage(it) }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -85,6 +100,7 @@ class ProfileFragment : Fragment() {
         ivTasksExpand = view.findViewById(R.id.iv_tasksExpand)
         rvUserTasks = view.findViewById(R.id.rv_userTasks)
         ll_congrats = view.findViewById(R.id.ll_congrats)
+        ivProfileAvatar = view.findViewById(R.id.iv_profileAvatar)
 
         btnEditarNombe = view.findViewById(R.id.btn_editName)
         btnEditarProfileImage = view.findViewById(R.id.btn_editAvatar)
@@ -93,6 +109,10 @@ class ProfileFragment : Fragment() {
 
             showEditNameDialog()
 
+        }
+
+        btnEditarProfileImage.setOnClickListener {
+            imagePickerLauncher.launch("image/*")
         }
 
         ll_congrats.visibility = View.GONE
@@ -196,6 +216,75 @@ class ProfileFragment : Fragment() {
 
     }
 
+    private fun uploadProfileImage(uri: Uri) {
+        try {
+            val imageStream = requireContext().contentResolver.openInputStream(uri)
+            val selectedImage = BitmapFactory.decodeStream(imageStream)
+
+            val scaledBitmap = scaleBitmap(selectedImage, 500)
+
+            val outputStream = ByteArrayOutputStream()
+            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 70, outputStream) // 70% quality
+            val byteArray = outputStream.toByteArray()
+            val base64String = Base64.encodeToString(byteArray, Base64.DEFAULT)
+
+            saveProfileImageBase64(base64String)
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(context, "Error procesando imagen", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun saveProfileImageBase64(base64String: String) {
+        val uid = currentUserId ?: return
+
+        db.collection("users").document(uid)
+            .update("profileImage", base64String)
+            .addOnSuccessListener {
+                loadProfileImage(base64String) // Display immediately
+                textSuccess.text = "Foto actualizada"
+                toast.duration = Toast.LENGTH_SHORT
+                toast.view = layoutSuccess
+                toast.show()
+            }
+            .addOnFailureListener {
+                Toast.makeText(context, "Error al guardar en base de datos", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun loadProfileImage(base64String: String?) {
+        if (base64String.isNullOrEmpty()) return
+
+        try {
+            val decodedBytes = Base64.decode(base64String, Base64.DEFAULT)
+            val decodedBitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+
+            ivProfileAvatar.load(decodedBitmap) {
+                crossfade(true)
+                transformations(CircleCropTransformation())
+                placeholder(R.drawable.circle_profile)
+                error(R.drawable.circle_profile)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun scaleBitmap(bitmap: Bitmap, maxDimension: Int): Bitmap {
+        val originalWidth = bitmap.width
+        val originalHeight = bitmap.height
+        var newWidth = maxDimension
+        var newHeight = maxDimension
+
+        if (originalWidth > originalHeight) {
+            newHeight = (newWidth * originalHeight) / originalWidth
+        } else {
+            newWidth = (newHeight * originalWidth) / originalHeight
+        }
+        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, false)
+    }
+
 
     private fun setupObservers(){
 
@@ -263,9 +352,11 @@ class ProfileFragment : Fragment() {
                 if (document.exists()) {
                     val name = document.getString("name")
                     val email = document.getString("email")
+                    val profileImageBase64 = document.getString("profileImage")
 
                     tvCompleteName.text = name
                     tvRealEmail.text = email
+                    loadProfileImage(profileImageBase64)
 
                 }
             }

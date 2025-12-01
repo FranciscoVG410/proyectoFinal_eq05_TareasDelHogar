@@ -54,9 +54,12 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-database:22.0.1")
+    implementation("com.google.firebase:firebase-storage")
 
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.0")
     implementation("androidx.fragment:fragment-ktx:1.6.2")
     implementation("com.google.android.flexbox:flexbox:3.0.0")
+    
+    implementation("io.coil-kt:coil:2.5.0")
 
 }
