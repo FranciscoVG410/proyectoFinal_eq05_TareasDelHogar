@@ -20,9 +20,10 @@
 
             <TextView
                 android:layout_width="match_parent"
-                android:layout_height="65dp"
+                android:layout_height="100dp"
                 android:background="@color/purple"
                 android:gravity="center"
+                android:paddingTop="26dp"
                 android:text="Graphs"
                 android:textColor="@color/white"
                 android:textSize="25sp"

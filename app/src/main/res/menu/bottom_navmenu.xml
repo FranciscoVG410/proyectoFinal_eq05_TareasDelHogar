@@ -4,16 +4,23 @@
     <item
         android:id="@+id/btnNav_tasks"
         android:title="Tasks"
-        android:icon="@drawable/tasksvector"/>
-
+        android:icon="@drawable/tasksvector"
+        android:iconTint="@color/purple"/>
     <item
         android:id="@+id/btnNavGraphs"
         android:title="Graphics"
-        android:icon="@drawable/graphs__2_"/>
+        android:icon="@drawable/graphs__2_"
+        android:iconTint="@color/purple"/>
 
     <item
         android:id="@+id/btnNav_config"
         android:title="Config"
-        android:icon="@drawable/settings__2_"/>
+        android:icon="@drawable/settings__2_"
+        android:iconTint="@color/purple"/>
 
+    <item
+        android:id="@+id/btnNav_profile"
+        android:title="Profile"
+        android:icon="@drawable/profile"
+        android:iconTint="@color/purple"/>
 </menu>

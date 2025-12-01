@@ -1,174 +1,89 @@
 package valdez.francisco.dingdone
 
-import android.content.Intent
 import android.os.Bundle
-import android.util.Log
-import android.widget.Button
-import android.widget.LinearLayout
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomnavigation.BottomNavigationView
-import com.google.android.material.floatingactionbutton.FloatingActionButton
+import com.google.firebase.auth.FirebaseAuth
 
 class TasksActivity : AppCompatActivity() {
 
-    private lateinit var recyclerView: RecyclerView
-    private lateinit var taskAdapter: TaskDateAdapter
-    private val allTasks = mutableListOf<Task>()
-    private lateinit var buttonsContainer: LinearLayout
-//    private lateinit var tasknueva: Task
-    private val tasks1 = mutableListOf<Task>()
-    private val tasks2 = mutableListOf<Task>()
-    private val tasks3 = mutableListOf<Task>()
+    private lateinit var bottomNavigationView: BottomNavigationView
+    private val userViewModel: UserViewModel by viewModels()
+    private val auth = FirebaseAuth.getInstance()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-
-
-//
-//        if(task!=null){
-//
-//            tasks1.add(Task(task.nombre, task.descripcio, task.member, task.date, task.state))
-//
-//        }
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_tasks)
 
-        val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bottom_navigation)
-
+        bottomNavigationView = findViewById(R.id.bottom_navigation)
         bottomNavigationView.itemIconTintList = null
 
-        recyclerView = findViewById(R.id.recyclerViewTasks)
-        recyclerView.layoutManager = LinearLayoutManager(this)
-//        val tasks1 = mutableListOf<Task>()
-
-////        var nuevaTarea = Task("", "", listOf<UserData>(), "", "")
-        val task = intent.getParcelableExtra<Task>("newTask")
-        task?.let {
-
-
-//            tasknueva = Task(it.nombre, it.descripcio, it.member, it.date, it.state)
-            tasks1.add(it)
-//            tasks1.add(Task(it.nombre, it.descripcio, it.member, it.date, it.state))
-//            Log.d("TaskReceived", "Nombre: ${it.nombre}, Miembros: ${it.member.size}")
-//            Log.d("Tarea agregada", it.toString())
-//            Log.d("Elemento fuera", task.toString())
-
-
-        }
-
-//        Log.d("Elemento fuera", task.toString())
-//        // Create dummy tasks
-//        if(tasknueva != null){
-//
-//            tasks1.add(tasknueva)
-//
-//        }else {
-//
-//            tasknueva = Task("Lavar cosas feas", "Lavar todos los platos que se usaron en la mañana", listOf(UserData("Juan"), UserData("Francisco"), UserData("Victor")), "Lunes", "Completada")
-//            tasks1.add(Task("Lavar cosas feas", "Lavar todos los platos que se usaron en la mañana", listOf(UserData("Juan"), UserData("Francisco"), UserData("Victor")), "Lunes", "Completada"))
-
-////        }
-//        if (task?.nombre != ""){
-//            tasks1.add(task?: Task("Lavar platos", "Lavar todos los platos que se usaron en la mañana", listOf(UserData("Juan"), UserData("Francisco"), UserData("Victor")), "Lunes", "Completada"))
-//        }
-
-        if(tasks1.isEmpty() || tasks2.isEmpty() || tasks3.isEmpty()){
-
-            tasks1.add(Task("Lavar platos", "Lavar todos los platos que se usaron en la mañana", listOf(UserData("Juan"), UserData("Francisco"), UserData("Victor")), "Lunes", "Completada"))
-            tasks1.add(Task("Sacar la basura", "Sacar la basura antes de las 10 porque llega el camión", listOf(UserData("Juan"), UserData("Francisco"), UserData("Victor")), "Martes", "Completada"))
-            tasks1.add(Task("Lavar los carros", "Lavar el Eclipse del Beto porque se enoja si no", listOf(UserData("Juan"), UserData("Francisco"), UserData("Victor")), "Viernes", "Pendiente"))
-            tasks1.add(Task("Revisar el correo", "Lavar correos inventados para probar longitud", listOf(UserData("Juan"), UserData("Amos")), "Viernes", "Pendiente"))
-
-            tasks2.add(Task("Lavar platos", "Lavar todos los platos que se usaron en la mañana", listOf(UserData("Juan"), UserData("Francisco"), UserData("Victor")), "Lunes", "Completada"))
-            tasks2.add( Task("Sacar la basura", "Sacar la basura antes de las 10 porque llega el camión", listOf(UserData("Juan"), UserData("Francisco"), UserData("Victor")), "Lunes", "Completada"))
-            tasks2.add(Task("Lavar los carros", "Lavar el Eclipse del Beto porque se enoja si no", listOf(UserData("Juan"), UserData("Francisco"), UserData("Victor")), "Lunes", "Pendiente"))
-            tasks2.add(  Task("Revisar el correo", "Lavar correos inventados para probar longitud", listOf(UserData("Juan"), UserData("Amos")), "Lunes", "Pendiente"))
-
-            tasks3.add( Task("Lavar platos", "Lavar todos los platos que se usaron en la mañana", listOf(UserData("Juan"), UserData("Francisco"), UserData("Victor")), "Lunes", "Completada"))
-            tasks3.add( Task("Sacar la basura", "Sacar la basura antes de las 10 porque llega el camión", listOf(UserData("Juan"), UserData("Francisco"), UserData("Victor")), "Lunes", "Completada"))
-            tasks3.add(Task("Lavar los carros", "Lavar el Eclipse del Beto porque se enoja si no", listOf(UserData("Juan"), UserData("Francisco"), UserData("Victor")), "Lunes", "Pendiente"))
-            tasks3.add( Task("Revisar el correo", "Lavar correos inventados para probar longitud", listOf(UserData("Juan"), UserData("Amos")), "Lunes", "Pendiente"))
-
-        }
-        val homeButtonTitles = listOf("home1", "home2", "home3")
-        val taskLists = listOf(tasks1, tasks2, tasks3)
-
-        buttonsContainer = findViewById(R.id.buttonsContainer)
-
-        val marginInPixels = (16 * resources.displayMetrics.density).toInt()
-
-        for (i in homeButtonTitles.indices) {
-            val button = Button(this)
-            button.text = homeButtonTitles[i]
-            button.background = ContextCompat.getDrawable(this, R.drawable.rounded_button_purple)
-            button.setTextColor(ContextCompat.getColor(this, R.color.white))
-
-            val params = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-            params.rightMargin = marginInPixels
-            button.layoutParams = params
-
-            button.setOnClickListener {
-                updateTasks(taskLists[i])
-            }
-            buttonsContainer.addView(button)
-        }
-        taskAdapter = TaskDateAdapter(emptyList())
-        recyclerView.adapter = taskAdapter
-
-        // Show the first list of tasks by default
-        updateTasks(taskLists[0])
-
-        val fabAddTask: FloatingActionButton = findViewById(R.id.fabAddTask)
-        fabAddTask.setOnClickListener {
-            val fragment = NewTaskFragment()
-
-            supportFragmentManager.beginTransaction().apply {
-                replace(R.id.fragment_container, fragment)
-                addToBackStack(null)
-                commit()
+        if (savedInstanceState == null) {
+            val userId = auth.currentUser?.uid
+            if (userId != null) {
+                userViewModel.loadUserHomes(userId)
+                userViewModel.userHomes.observe(this) { homes ->
+                    if (homes.isEmpty()) {
+                        supportFragmentManager.beginTransaction()
+                            .replace(R.id.fragment_container, ConfigurationFragment())
+                            .commit()
+                    } else {
+                        supportFragmentManager.beginTransaction()
+                            .replace(R.id.fragment_container, TasksFragmentNew())
+                            .commit()
+                    }
+                }
+            } else {
+                supportFragmentManager.beginTransaction()
+                    .replace(R.id.fragment_container, TasksFragmentNew())
+                    .commit()
             }
         }
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (supportFragmentManager.backStackEntryCount > 0) {
+                    supportFragmentManager.popBackStack()
+                } else {
+                    finish()
+                }
+            }
+        })
 
         bottomNavigationView.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                R.id.btnNav_tasks -> true
-
+                R.id.btnNav_tasks -> {
+                    supportFragmentManager.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
+                    supportFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, TasksFragmentNew())
+                        .commit()
+                    true
+                }
                 R.id.btnNavGraphs -> {
-                    startActivity(Intent(this, GraphsActivity::class.java))
-                    overridePendingTransition(0, 0)
+                    supportFragmentManager.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
+                    supportFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, GraphsFragment())
+                        .commit()
                     true
                 }
                 R.id.btnNav_config -> {
-                    startActivity(Intent(this, Configuration::class.java))
-                    overridePendingTransition(0, 0)
+                    supportFragmentManager.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
+                    supportFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, ConfigurationFragment())
+                        .commit()
+                    true
+                }
+                R.id.btnNav_profile -> {
+                    supportFragmentManager.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
+                    supportFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, ProfileFragment())
+                        .commit()
                     true
                 }
                 else -> false
             }
         }
-    }
-
-    private fun updateTasks(tasks: List<Task>) {
-        allTasks.clear()
-        allTasks.addAll(tasks)
-        val groupedTasks: Map<String, List<Task>> = allTasks.groupBy { it.date }
-
-        val items = mutableListOf<TaskListItem>()
-        val weekDays = listOf("Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado", "Domingo")
-
-        for (day in weekDays) {
-            val dayTasks = groupedTasks[day]
-            if (!dayTasks.isNullOrEmpty()) {
-                // Solo mostrar la fecha si tiene tareas
-                items.add(TaskListItem.Header(day))
-                items.addAll(dayTasks.map { TaskListItem.TaskItem(it) })
-            }
-        }
-        taskAdapter.updateItem(items)
     }
 }
