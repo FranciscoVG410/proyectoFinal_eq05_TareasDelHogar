@@ -18,6 +18,9 @@ import com.google.firebase.auth.FirebaseAuth
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.LiveData
 import androidx.fragment.app.activityViewModels
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 class TasksFragmentNew : Fragment() {
 
@@ -33,6 +36,18 @@ class TasksFragmentNew : Fragment() {
     private lateinit var layoutFail: View
     private lateinit var textFail: TextView
     private lateinit var toast: Toast
+
+    private val dayMap = mapOf(
+
+        Calendar.MONDAY to "Lunes",
+        Calendar.TUESDAY to "Martes",
+        Calendar.WEDNESDAY to "Miercoles",
+        Calendar.THURSDAY to "Jueves",
+        Calendar.FRIDAY to "Viernes",
+        Calendar.SATURDAY to "Sabado",
+        Calendar.SUNDAY to "Domingo"
+
+    )
 
 
     override fun onCreateView(
@@ -56,11 +71,12 @@ class TasksFragmentNew : Fragment() {
         taskAdapter = TaskDateAdapterNew(emptyList(), "")
         recyclerView.adapter = taskAdapter
 
-
         val userId = auth.currentUser?.uid
         if (userId != null) {
             uvm.loadUserHomes(userId)
         }
+
+
 
         uvm.userHomes.observe(viewLifecycleOwner) { homes ->
 
@@ -70,14 +86,26 @@ class TasksFragmentNew : Fragment() {
                 buttonsContainer.visibility = View.VISIBLE
                 homes.forEach { home ->
 
+                    val displayName = if (home.name.length > 20) {
+                        val start = home.name.substring(0, 8)
+                        val end = home.name.substring(home.name.length - 8)
+                        "$start...$end"
+                    } else {
+                        home.name
+                    }
+
                     val button = Button(requireContext()).apply {
-                        text = home.name
+                        text = displayName
+                        tag = home.name
                         layoutParams = LinearLayout.LayoutParams(
-                            190,
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
                             LinearLayout.LayoutParams.WRAP_CONTENT
                         ).apply {
                             setMargins(12, 0, 12, 0)
                         }
+                        minWidth = 150
+                        maxWidth = 280
+                        setPadding(24, 12, 24, 12)
                         background = ContextCompat.getDrawable(
                             requireContext(),
                             R.drawable.rounded_button_purple
@@ -105,8 +133,22 @@ class TasksFragmentNew : Fragment() {
                 }
             }else if(homes.size == 1) {
 
-                buttonsContainer.visibility = View.GONE
+                buttonsContainer.visibility = View.VISIBLE
                 val uniqueHome = homes.first()
+
+                val titleView = TextView(requireContext()).apply {
+                    text = uniqueHome.name
+                    textSize = 36f
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.purple))
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    )
+                    gravity = android.view.Gravity.CENTER
+                    setTypeface(typeface, android.graphics.Typeface.BOLD)
+                }
+
+                buttonsContainer.addView(titleView)
 
                 homeViewModel.selectHome(uniqueHome.id)
                 uvm.loadTasksForHome(uniqueHome.id)
@@ -127,7 +169,29 @@ class TasksFragmentNew : Fragment() {
             }
         }
 
+
         val fabAddTask: FloatingActionButton = view.findViewById(R.id.fabAddTask)
+
+        var currentHome: Home? = null
+
+        homeViewModel.selectedHomeId.observe(viewLifecycleOwner) { homeId ->
+            val homes = uvm.userHomes.value ?: return@observe
+
+            currentHome = homes.find { it.id == homeId }
+
+            val userId = auth.currentUser?.uid
+            val home = currentHome
+
+            if (userId != null && home != null) {
+                if (home.ownerId != userId && home.membersCanEdit != true) {
+                    fabAddTask.visibility = View.GONE
+                } else {
+                    fabAddTask.visibility = View.VISIBLE
+                }
+            }
+        }
+
+
         fabAddTask.setOnClickListener {
 
             if(uvm.userHomes.value?.isEmpty() == true){
@@ -164,13 +228,26 @@ class TasksFragmentNew : Fragment() {
     private fun updateButtonStyles(selectedButton: Button) {
         for (i in 0 until buttonsContainer.childCount) {
             val button = buttonsContainer.getChildAt(i) as Button
+            val fullName = button.tag as? String ?: button.text.toString()
+            
             if (button == selectedButton) {
+                button.text = fullName
+                button.maxWidth = 600
                 button.background = ContextCompat.getDrawable(
                     requireContext(),
                     R.drawable.fondobtn
                 )
                 button.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
             } else {
+                val displayName = if (fullName.length > 20) {
+                    val start = fullName.substring(0, 8)
+                    val end = fullName.substring(fullName.length - 8)
+                    "$start...$end"
+                } else {
+                    fullName
+                }
+                button.text = displayName
+                button.maxWidth = 280
                 button.background = ContextCompat.getDrawable(
                     requireContext(),
                     R.drawable.contorno
@@ -185,52 +262,17 @@ class TasksFragmentNew : Fragment() {
         allTasks.clear()
         allTasks.addAll(tasks)
 
-        if(recyclerView.adapter == null || (recyclerView.adapter as? TaskDateAdapterNew) == null){
-
-            taskAdapter == TaskDateAdapterNew(emptyList(), homeId)
-            recyclerView.adapter = taskAdapter
-
-        }
-
         taskAdapter = TaskDateAdapterNew(emptyList(), homeId)
         recyclerView.adapter = taskAdapter
 
-        val calendar = java.util.Calendar.getInstance()
-        val dayOfWeek = calendar.get(java.util.Calendar.DAY_OF_WEEK)
-
-        val todayString = when (dayOfWeek){
-
-            java.util.Calendar.MONDAY -> "Lunes"
-            java.util.Calendar.TUESDAY -> "Martes"
-            java.util.Calendar.WEDNESDAY -> "Miercoles"
-            java.util.Calendar.THURSDAY -> "Jueves"
-            java.util.Calendar.FRIDAY -> "Viernes"
-            java.util.Calendar.SUNDAY -> "Sabado"
-            java.util.Calendar.SATURDAY-> "Domingo"
-            else -> ""
-
-        }
-
-        val pendingTaskToday = allTasks.filter { task ->
-
-            task.state != "Completada" && task.date.contains(todayString)
-
-        }
-
-        val completedTask = allTasks.filter { task ->
-
-            task.state == "Completada" && task.date.contains(todayString)
-
-        }
-
-        if(pendingTaskToday.isEmpty() && completedTask.isEmpty()){
+        if(allTasks.isEmpty()){
 
             noTasksText.visibility = View.VISIBLE
-            noTasksText.text = "not task for today (${todayString})"
+            noTasksText.text = "No task found"
             recyclerView.visibility = View.GONE
             return
 
-        }else {
+        }else{
 
             noTasksText.visibility = View.GONE
             recyclerView.visibility = View.VISIBLE
@@ -238,22 +280,87 @@ class TasksFragmentNew : Fragment() {
         }
 
         val items = mutableListOf<TaskListItem>()
+        val calendar = Calendar.getInstance()
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
-        if(pendingTaskToday.isNotEmpty()){
+        val todayInt = calendar.get(Calendar.DAY_OF_WEEK)
+        val todayString = dayMap[todayInt] ?: ""
+        val todayDateCode = dateFormat.format(calendar.time)
+        val taskForToday = allTasks.filter { task ->
 
-            items.add(TaskListItem.Header("Para hoy (${todayString})"))
-            items.addAll(pendingTaskToday.map { TaskListItem.TaskItem(it) })
-
-        }else {
-
-            items.add(TaskListItem.Header("Para hoy (${todayString})"))
+            task.date.contains(todayString)
 
         }
+        if(taskForToday.isNotEmpty()) {
 
-        if(completedTask.isNotEmpty()){
+            items.add(TaskListItem.Header("Tareas para hoy (${todayString})"))
+            items.addAll(taskForToday.map { TaskListItem.TaskItem(it, homeId, todayDateCode) })
 
-            items.add(TaskListItem.Header("Completadas"))
-            items.addAll(completedTask.map { TaskListItem.TaskItem(it) })
+        }
+        for(i in 1..6){
+
+            val nextDayCal = Calendar.getInstance()
+            nextDayCal.add(Calendar.DAY_OF_YEAR, i)
+
+            val nextDayInt = nextDayCal.get(Calendar.DAY_OF_WEEK)
+            val nextDayString = dayMap[nextDayInt] ?: continue
+            val nextDayDateCode = dateFormat.format(nextDayCal.time)
+
+            val tasksForNextDay = allTasks.filter { task ->
+                task.date.contains(nextDayString)
+            }
+
+            if (tasksForNextDay.isNotEmpty()) {
+                items.add(TaskListItem.Header(nextDayString))
+                items.addAll(tasksForNextDay.map { TaskListItem.TaskItem(it, homeId, nextDayDateCode) })
+            }
+
+        }
+        taskAdapter.updateItem(items)
+
+//        val pendingTaskToday = allTasks.filter { task ->
+//
+//            task.state != "Completada" && task.date.contains(todayString)
+//
+//        }
+//
+//        val completedTask = allTasks.filter { task ->
+//
+//            task.state == "Completada" && task.date.contains(todayString)
+//
+//        }
+//
+//        if(pendingTaskToday.isEmpty() && completedTask.isEmpty()){
+//
+//            noTasksText.visibility = View.VISIBLE
+//            noTasksText.text = "not task for today (${todayString})"
+//            recyclerView.visibility = View.GONE
+//            return
+//
+//        }else {
+//
+//            noTasksText.visibility = View.GONE
+//            recyclerView.visibility = View.VISIBLE
+//
+//        }
+//
+//        val items = mutableListOf<TaskListItem>()
+//
+//        if(pendingTaskToday.isNotEmpty()){
+//
+//            items.add(TaskListItem.Header("Para hoy (${todayString})"))
+//            items.addAll(pendingTaskToday.map { TaskListItem.TaskItem(it) })
+//
+//        }else {
+//
+//            items.add(TaskListItem.Header("Para hoy (${todayString})"))
+//
+//        }
+//
+//        if(completedTask.isNotEmpty()){
+//
+//            items.add(TaskListItem.Header("Completadas"))
+//            items.addAll(completedTask.map { TaskListItem.TaskItem(it) })
 
         }
 
@@ -299,9 +406,9 @@ class TasksFragmentNew : Fragment() {
 //            items.add(TaskListItem.Header("Completadas"))
 //            items.addAll(completedTasks.map { TaskListItem.TaskItem(it) })
 //        }
-
-        taskAdapter.updateItem(items)
-    }
+//
+//        taskAdapter.updateItem(items)
+//    }
 
 
 }

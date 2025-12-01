@@ -12,7 +12,6 @@ import android.widget.Spinner
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import valdez.francisco.dingdone.graphics.CustomPieDrawable
-import valdez.francisco.dingdone.graphics.PieSlice
 
 class GraphsFragment : Fragment() {
 
@@ -46,23 +45,20 @@ class GraphsFragment : Fragment() {
 
     private fun setupPeriodSpinner() {
         val periodOptions = PeriodType.entries.map { it.name }
-        val adapter = ArrayAdapter(
-            requireContext(),
-            android.R.layout.simple_spinner_item,
-            periodOptions
-        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, periodOptions).also {
+            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
         spinnerPeriod.adapter = adapter
         spinnerPeriod.setSelection(periodOptions.indexOf(PeriodType.WEEKLY.name))
 
         spinnerPeriod.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+            override fun onItemSelected(
+                parent: AdapterView<*>?, view: View?, position: Int, id: Long
+            ) {
                 currentPeriod = PeriodType.valueOf(periodOptions[position])
                 Log.d("GraphsFragment", "Period Selected: $currentPeriod")
-                if (currentDataType == GraphDataType.COMPLETED) {
-                    loadDataForCurrentHome()
-                }
+                loadDataForCurrentHome()
             }
-
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
     }
@@ -81,18 +77,17 @@ class GraphsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         setupSelectedHomeObserver()
 
-        userViewModel.completedTasksData.observe(viewLifecycleOwner) { completedTasks ->
+        userViewModel.completedTasksData.observe(viewLifecycleOwner) { list ->
             if (currentDataType == GraphDataType.COMPLETED) {
-                updatePieChartData(completedTasks)
+                updatePieChartData(list)
             }
         }
 
-        userViewModel.unfinishedTasksData.observe(viewLifecycleOwner) { unfinishedTasks ->
+        userViewModel.unfinishedTasksData.observe(viewLifecycleOwner) { list ->
             if (currentDataType == GraphDataType.UNFINISHED) {
-                updatePieChartData(unfinishedTasks)
+                updatePieChartData(list)
             }
         }
     }
@@ -100,10 +95,8 @@ class GraphsFragment : Fragment() {
     private fun setupSelectedHomeObserver() {
         homeShareViewModel.selectedHomeId.observe(viewLifecycleOwner) { homeId ->
             if (!homeId.isNullOrEmpty()) {
-                Log.d("GraphsFragment", "Loading tasks: $homeId")
                 loadDataForCurrentHome()
             } else {
-                Log.w("GraphsFragment", "Home ID invalid")
                 customPieView.background = null
             }
         }
@@ -113,12 +106,11 @@ class GraphsFragment : Fragment() {
         val homeId = homeShareViewModel.selectedHomeId.value ?: return
 
         when (currentDataType) {
-            GraphDataType.COMPLETED -> {
+            GraphDataType.COMPLETED ->
                 userViewModel.loadCompletedTasksForHome(homeId, currentPeriod)
-            }
-            GraphDataType.UNFINISHED -> {
-                userViewModel.loadUnfinishedTasksForHome(homeId)
-            }
+
+            GraphDataType.UNFINISHED ->
+                userViewModel.loadUnfinishedTasksForHome(homeId, currentPeriod)
         }
     }
 
@@ -128,37 +120,47 @@ class GraphsFragment : Fragment() {
             return
         }
 
-        val allMembers = tasks.flatMap { it.member }
+        val allMembers = tasks.flatMap { it.member ?: emptyList() }
+        if (allMembers.isEmpty()) {
+            customPieView.background = null
+            return
+        }
+
         val taskCounts = allMembers.groupBy { it }.mapValues { it.value.size }
         val total = taskCounts.values.sum().toFloat()
+        if (total <= 0f) {
+            customPieView.background = null
+            return
+        }
 
+        // Asignar colores a cada usuario
         taskCounts.keys.forEach { userId ->
-            if (!userColorMap.containsKey(userId)) {
-                userColorMap[userId] = getRandomColor()
-            }
+            userColorMap.putIfAbsent(userId, getRandomColor())
         }
 
         val slices = taskCounts.map { (userId, count) ->
             PieSlice(
-                label = resolveUserName(userId),
+                label = userId,
                 angle = (count / total) * 360f,
                 color = userColorMap[userId]!!,
                 count = count
             )
         }
+
         val isCompletedFlag = currentDataType == GraphDataType.COMPLETED
-        customPieView.background = CustomPieDrawable(requireContext(), slices, isCompletedFlag)
+
+        customPieView.background = CustomPieDrawable(
+            requireContext(),
+            slices,
+            isCompletedFlag
+        )
     }
 
     private fun getRandomColor(): Int {
         val rnd = java.util.Random()
-        val r = rnd.nextInt(256)
-        val g = rnd.nextInt(256)
-        val b = rnd.nextInt(256)
+        val r = rnd.nextInt(156) + 50
+        val g = rnd.nextInt(156) + 50
+        val b = rnd.nextInt(156) + 50
         return android.graphics.Color.rgb(r, g, b)
-    }
-
-    private fun resolveUserName(userId: String): String {
-        return userId
     }
 }

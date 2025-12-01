@@ -112,7 +112,8 @@ class CreateHomeFragment : Fragment() {
             "ownerId" to userId,
             "members" to listOf(userId),
             "invitationCode" to invitationCode,
-            "createdAt" to FieldValue.serverTimestamp()
+            "createdAt" to FieldValue.serverTimestamp(),
+            "membersCanEdit" to true
         )
         newHomeRef.set(homeData).addOnSuccessListener {
                 Log.d("CreateHome", "Home created: $homeId")

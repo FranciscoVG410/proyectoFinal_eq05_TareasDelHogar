@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#F5F5F5">
+    android:background="#F5F5F5"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -56,19 +56,21 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center">
 
-                <View
-                    android:id="@+id/view_avatar"
+                <ImageView
+                    android:id="@+id/iv_profileAvatar"
                     android:layout_width="100dp"
                     android:layout_height="100dp"
                     android:background="@drawable/circle_profile"
-                    android:elevation="2dp" />
+                    android:elevation="2dp"
+                    android:scaleType="centerCrop"
+                    android:contentDescription="Profile Avatar" />
 
                 <ImageButton
                     android:id="@+id/btn_editAvatar"
                     android:layout_width="32dp"
                     android:layout_height="32dp"
-                    android:layout_alignEnd="@+id/view_avatar"
-                    android:layout_alignBottom="@+id/view_avatar"
+                    android:layout_alignEnd="@+id/iv_profileAvatar"
+                    android:layout_alignBottom="@+id/iv_profileAvatar"
                     android:background="@drawable/circle_edit"
                     android:contentDescription="Edit Avatar"
                     android:layout_margin="2dp"
@@ -147,6 +149,37 @@
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
+            <LinearLayout
+                android:id="@+id/ll_congrats"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/contorno"
+                android:padding="6dp"
+                android:visibility="gone"
+                >
+
+                <TextView
+                    android:id="@+id/tvCongratulations"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="¡Felicidades! 🎉"
+                    android:textSize="32sp"
+                    android:textStyle="bold"
+                    android:textColor="#FF6B35"
+                    android:gravity="center"/>
+
+                <TextView
+                    android:id="@+id/tvSubtitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="¡¡Haz terminado todas tus tareas!!"
+                    android:textSize="18sp"
+                    android:textColor="#555555"
+                    android:gravity="center"/>
+
+            </LinearLayout>
+
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -164,7 +197,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Current Assignments"
+                        android:text="Current Assignments (week)"
                         android:textStyle="bold"
                         android:textColor="#444"
                         android:textSize="14sp"/>
@@ -192,6 +225,100 @@
             </LinearLayout>
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/ll_housesSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="16dp"
+            android:background="@android:color/white"
+            android:elevation="4dp"
+            android:orientation="vertical"
+            android:padding="24dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:fontFamily="sans-serif-medium"
+                android:text="My Houses"
+                android:textColor="@color/purple"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="12dp"
+                android:background="#E0E0E0" />
+
+            <LinearLayout
+                android:id="@+id/ll_housesContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/ll_tasksSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="16dp"
+            android:background="@android:color/white"
+            android:elevation="4dp"
+            android:orientation="vertical"
+            android:padding="24dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/ll_tasksHeader"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_gravity="center"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="My Tasks"
+                    android:textColor="@color/purple"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <ImageView
+                    android:id="@+id/iv_tasksExpand"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@android:drawable/arrow_up_float"
+                    android:contentDescription="Expand/Collapse" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="12dp"
+                android:background="#E0E0E0" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_userTasks"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false" />
+
+        </LinearLayout>
+
         <Button
             android:id="@+id/btn_logout"
             android:layout_width="match_parent"
@@ -206,4 +333,4 @@
             android:textSize="16sp"
             android:textStyle="bold" />
     </LinearLayout>
-</LinearLayout>
+</androidx.core.widget.NestedScrollView>
